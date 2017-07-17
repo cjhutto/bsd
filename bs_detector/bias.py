@@ -1,0 +1,506 @@
+#!/usr/bin/python
+# coding: utf-8
+"""
+Created on June 04, 2015
+@author: C.J. Hutto
+"""
+
+import nltk
+#from vaderSentiment.vaderSentiment import sentiment as vader_sentiment
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer as vader_sentiment
+from pattern.en import parse, Sentence, parse, modality, mood
+from pattern.en import sentiment as pattern_sentiment
+from textstat.textstat import textstat
+
+
+def get_list_from_file(file_name):
+    with open(file_name, "r") as f1:
+        l = f1.read().lower().split('\n')
+    return l
+
+
+def append_to_file(file_name, line):
+    # ...append a line of text to a file
+    with open(file_name, 'a') as f1:
+        f1.write(line)
+        f1.write("\n")
+
+
+def count_feature_list_freq(feat_list, words, bigrams, trigrams):
+    cnt = 0
+    for w in words:
+        if w in feat_list:
+            cnt += 1
+    for b in bigrams:
+        if b in feat_list:
+            cnt += 1
+    for t in trigrams:
+        if t in feat_list:
+            cnt += 1
+    return cnt
+
+
+def count_liwc_list_freq(liwc_list, words_list):
+    cnt = 0
+    for w in words_list:
+        if w in liwc_list:
+            cnt += 1
+        for lw in liwc_list:
+            if str(lw).endswith('*') and str(w).startswith(lw):
+                cnt += 1
+    return cnt
+
+
+##### List of assertive verbs and factive verbs extracted from:
+# Joan B. Hooper. 1975. On assertive predicates. In J. Kimball, editor,
+# Syntax and Semantics, volume 4, pages 91–124. Academic Press, New York.
+#########################################################################
+assertives = get_list_from_file('../ref_lexicons/ref_assertive_verbs')
+factives = get_list_from_file('../ref_lexicons/ref_factive_verbs')
+
+##### List of hedges extracted from:
+# Ken Hyland. 2005. Metadiscourse: Exploring Interaction in Writing.
+# Continuum, London and New York.
+#########################################################################
+hedges = get_list_from_file('../ref_lexicons/ref_hedge_words')
+
+##### List of implicative verbs extracted from:
+# Lauri Karttunen. 1971. Implicative verbs. Language, 47(2):340–358.
+#########################################################################
+implicatives = get_list_from_file('../ref_lexicons/ref_implicative_verbs')
+
+##### List of strong/weak subjective words extracted from:
+# Theresa Wilson, Janyce Wiebe and Paul Hoffmann (2005). Recognizing Contextual
+# Polarity in Phrase-Level Sentiment Analysis. Proceedings of HLT/EMNLP 2005,
+# Vancouver, Canada.
+#########################################################################
+subj_strong = get_list_from_file('../ref_lexicons/ref_subj_strong')
+subj_weak = get_list_from_file('../ref_lexicons/ref_subj_weak')
+
+##### List of bias words extracted from:
+# Marta Recasens, Cristian Danescu-Niculescu-Mizil, and Dan
+# Jurafsky. 2013. Linguistic Models for Analyzing and Detecting Biased
+# Language. Proceedings of ACL 2013.
+#########################################################################
+biased = get_list_from_file('../ref_lexicons/ref_bias_words')
+
+##### List of coherence markers extracted from:
+# Knott, Alistair. 1996. A Data-Driven Methodology for Motivating a Set of
+# Coherence Relations. Ph.D. dissertation, University of Edinburgh, UK.
+# Note: probably could be cleaned up a lot... e.g., ...
+# import re
+# def find_whole_word(w):
+#    return re.compile(r'\b({0})\b'.format(w), flags=re.IGNORECASE).search
+# lst = sorted(get_list_from_file('ref_coherence_markers'))
+# for w in lst:
+#    excl = [i for i in lst if i != w]
+#    for i in excl:
+#        if find_whole_word(w)(i):
+#            print w, "-->", i
+#########################################################################
+coherence = get_list_from_file('../ref_lexicons/ref_coherence_markers')
+
+##### List of degree modifiers and opinion words extracted from:
+# Hutto, C.J. & Gilbert, E.E. (2014). VADER: A Parsimonious Rule-based Model for
+#  Sentiment Analysis of Social Media Text. Eighth International Conference on
+#  Weblogs and Social Media (ICWSM-14). Ann Arbor, MI, June 2014.
+#########################################################################
+modifiers = get_list_from_file('../ref_lexicons/ref_degree_modifiers')
+opinionLaden = get_list_from_file('../ref_lexicons/ref_vader_words')
+vader_sentiment_analysis = vader_sentiment()
+
+##### Lists of LIWC category words
+# liwc 3rd person pronoun count (combines S/he and They)
+liwc_3pp = ["he", "hed", "he'd", "her", "hers", "herself", "hes", "he's", "him", "himself", "his", "oneself",
+            "she", "she'd", "she'll", "shes", "she's", "their*", "them", "themselves", "they", "theyd",
+            "they'd", "theyll", "they'll", "theyve", "they've"]
+# liwc auxiliary verb count
+liwc_aux = ["aint", "ain't", "am", "are", "arent", "aren't", "be", "became", "become", "becomes",
+            "becoming", "been", "being", "can", "cannot", "cant", "can't", "could", "couldnt",
+            "couldn't", "couldve", "could've", "did", "didnt", "didn't", "do", "does", "doesnt",
+            "doesn't", "doing", "done", "dont", "don't", "had", "hadnt", "hadn't", "has", "hasnt",
+            "hasn't", "have", "havent", "haven't", "having", "hed", "he'd", "heres", "here's",
+            "hes", "he's", "id", "i'd", "i'll", "im", "i'm", "is", "isnt", "isn't", "itd", "it'd",
+            "itll", "it'll", "it's", "ive", "i've", "let", "may", "might", "mightve", "might've",
+            "must", "mustnt", "must'nt", "mustn't", "mustve", "must've", "ought", "oughta",
+            "oughtnt", "ought'nt", "oughtn't", "oughtve", "ought've", "shall", "shant", "shan't",
+            "she'd", "she'll", "shes", "she's", "should", "shouldnt", "should'nt", "shouldn't",
+            "shouldve", "should've", "thatd", "that'd", "thatll", "that'll", "thats", "that's",
+            "theres", "there's", "theyd", "they'd", "theyll", "they'll", "theyre", "they're",
+            "theyve", "they've", "was", "wasnt", "wasn't", "we'd", "we'll", "were", "weren't",
+            "weve", "we've", "whats", "what's", "wheres", "where's", "whod", "who'd", "wholl",
+            "who'll", "will", "wont", "won't", "would", "wouldnt", "wouldn't", "wouldve", "would've",
+            "youd", "you'd", "youll", "you'll", "youre", "you're", "youve", "you've"]
+# liwc adverb count
+liwc_adv = ["about", "absolutely", "actually", "again", "also", "anyway*", "anywhere", "apparently",
+            "around", "back", "basically", "beyond", "clearly", "completely", "constantly", "definitely",
+            "especially", "even", "eventually", "ever", "frequently", "generally", "here", "heres", "here's",
+            "hopefully", "how", "however", "immediately", "instead", "just", "lately", "maybe", "mostly",
+            "nearly", "now", "often", "only", "perhaps", "primarily", "probably", "push*", "quick*", "rarely",
+            "rather", "really", "seriously", "simply", "so", "somehow", "soon", "sooo*", "still", "such",
+            "there", "theres", "there's", "tho", "though", "too", "totally", "truly", "usually", "very", "well",
+            "when", "whenever", "where", "yet"]
+# liwc preposition count
+liwc_prep = ["about", "above", "across", "after", "against", "ahead", "along", "among*", "around", "as", "at",
+             "atop", "away", "before", "behind", "below", "beneath", "beside", "besides", "between", "beyond",
+             "by", "despite", "down", "during", "except", "for", "from", "in", "inside", "insides", "into", "near",
+             "of", "off", "on", "onto", "out", "outside", "over", "plus", "since", "than", "through*", "thru", "til",
+             "till", "to", "toward*", "under", "underneath", "unless", "until", "unto", "up", "upon", "wanna", "with",
+             "within", "without"]
+# liwc conjunction count
+liwc_conj = ["also", "although", "and", "as", "altho", "because", "but", "cuz", "how", "however", "if", "nor",
+             "or", "otherwise", "plus", "so", "then", "tho", "though", "til", "till", "unless", "until", "when",
+             "whenever", "whereas", "whether", "while"]
+# liwc discrepency word count
+liwc_discr = ["besides", "could", "couldnt", "couldn't", "couldve", "could've", "desir*", "expect*", "hope", "hoped",
+              "hopeful", "hopefully",
+              "hopefulness", "hopes", "hoping", "ideal*", "if", "impossib*", "inadequa*", "lack*", "liabilit*",
+              "mistak*", "must", "mustnt",
+              "must'nt", "mustn't", "mustve", "must've", "need", "needed", "needing", "neednt", "need'nt", "needn't",
+              "needs", "normal", "ought",
+              "oughta", "oughtnt", "ought'nt", "oughtn't", "oughtve", "ought've", "outstanding", "prefer*", "problem*",
+              "rather", "regardless",
+              "regret*", "should", "shouldnt", "should'nt", "shouldn't", "shoulds", "shouldve", "should've",
+              "undesire*", "undo", "unneccess*",
+              "unneed*", "unwant*", "wanna", "want", "wanted", "wanting", "wants", "wish", "wished", "wishes",
+              "wishing", "would", "wouldnt",
+              "wouldn't", "wouldve", "would've", "yearn*"]
+# liwc tentative word count
+liwc_tent = ["allot", "almost", "alot", "ambigu*", "any", "anybod*", "anyhow", "anyone*", "anything", "anytime",
+             "anywhere",
+             "apparently", "appear", "appeared", "appearing", "appears", "approximat*", "arbitrar*", "assum*", "barely",
+             "bet",
+             "bets", "betting", "blur*", "borderline*", "chance", "confus*", "contingen*", "depend", "depended",
+             "depending",
+             "depends", "disorient*", "doubt*", "dubious*", "dunno", "fairly", "fuzz*", "generally", "guess", "guessed",
+             "guesses",
+             "guessing", "halfass*", "hardly", "hazie*", "hazy", "hesita*", "hope", "hoped", "hopeful", "hopefully",
+             "hopefulness",
+             "hopes", "hoping", "hypothes*", "hypothetic*", "if", "incomplet*", "indecis*", "indefinit*", "indetermin*",
+             "indirect*",
+             "kind(of)", "kinda", "kindof", "likel*", "lot", "lotof", "lots", "lotsa", "lotta", "luck", "lucked",
+             "lucki*", "luckless*",
+             "lucks", "lucky", "mainly", "marginal*", "may", "maybe", "might", "mightve", "might've", "most", "mostly",
+             "myster*", "nearly",
+             "obscur*", "occasional*", "often", "opinion", "option", "or", "overall", "partly", "perhaps", "possib*",
+             "practically", "pretty",
+             "probable", "probablistic*", "probably", "puzzl*", "question*", "quite", "random*", "seem", "seemed",
+             "seeming*", "seems", "shaki*",
+             "shaky", "some", "somebod*", "somehow", "someone*", "something*", "sometime", "sometimes", "somewhat",
+             "sort", "sorta", "sortof",
+             "sorts", "sortsa", "spose", "suppose", "supposed", "supposes", "supposing", "supposition*", "tempora*",
+             "tentativ*", "theor*",
+             "typically", "uncertain*", "unclear*", "undecided*", "undetermin*", "unknow*", "unlikel*", "unluck*",
+             "unresolv*", "unsettl*",
+             "unsure*", "usually", "vague*", "variab*", "varies", "vary", "wonder", "wondered", "wondering", "wonders"]
+# liwc certainty word count
+liwc_cert = ["absolute", "absolutely", "accura*", "all", "altogether", "always", "apparent", "assur*", "blatant*",
+             "certain*", "clear", "clearly",
+             "commit", "commitment*", "commits", "committ*", "complete", "completed", "completely", "completes",
+             "confidence", "confident",
+             "confidently", "correct*", "defined", "definite", "definitely", "definitive*", "directly", "distinct*",
+             "entire*", "essential",
+             "ever", "every", "everybod*", "everything*", "evident*", "exact*", "explicit*", "extremely", "fact",
+             "facts", "factual*", "forever",
+             "frankly", "fundamental", "fundamentalis*", "fundamentally", "fundamentals", "guarant*", "implicit*",
+             "indeed", "inevitab*",
+             "infallib*", "invariab*", "irrefu*", "must", "mustnt", "must'nt", "mustn't", "mustve", "must've",
+             "necessar*", "never", "obvious*",
+             "perfect*", "positiv*", "precis*", "proof", "prove*", "pure*", "sure*", "total", "totally", "true",
+             "truest", "truly", "truth*",
+             "unambigu*", "undeniab*", "undoubt*", "unquestion*", "wholly"]
+# liwc causation word count
+liwc_causn = ["activat*", "affect", "affected", "affecting", "affects", "aggravat*", "allow*", "attribut*", "based",
+              "bases", "basis",
+              "because", "boss*", "caus*", "change", "changed", "changes", "changing", "compel*", "compliance",
+              "complie*", "comply*",
+              "conclud*", "consequen*", "control*", "cos", "coz", "create*", "creati*", "cuz", "deduc*", "depend",
+              "depended", "depending",
+              "depends", "effect*", "elicit*", "experiment", "force*", "foundation*", "founded", "founder*",
+              "generate*", "generating",
+              "generator*", "hence", "how", "hows", "how's", "ignit*", "implica*", "implie*", "imply*", "inact*",
+              "independ*", "induc*",
+              "infer", "inferr*", "infers", "influenc*", "intend*", "intent*", "justif*", "launch*", "lead*", "led",
+              "made", "make", "maker*",
+              "makes", "making", "manipul*", "misle*", "motiv*", "obedien*", "obey*", "origin", "originat*", "origins",
+              "outcome*", "permit*",
+              "pick ", "produc*", "provoc*", "provok*", "purpose*", "rational*", "react*", "reason*", "response",
+              "result*", "root*", "since",
+              "solution*", "solve", "solved", "solves", "solving", "source*", "stimul*", "therefor*", "thus",
+              "trigger*", "use", "used", "uses",
+              "using", "why"]
+# liwc work word count
+liwc_work = ["absent*", "academ*", "accomplish*", "achiev*", "administrat*", "advertising", "advis*", "agent", "agents",
+             "ambiti*", "applicant*",
+             "applicat*", "apprentic*", "assign*", "assistan*", "associat*", "auditorium*", "award*", "beaten",
+             "benefits", "biolog*", "biz",
+             "blackboard*", "bldg*", "book*", "boss*", "broker*", "bureau*", "burnout*", "business*", "busy",
+             "cafeteria*", "calculus", "campus*",
+             "career*", "ceo*", "certif*", "chairm*", "chalk", "challeng*", "champ*", "class", "classes", "classmate*",
+             "classroom*", "collab*",
+             "colleague*", "colleg*", "com", "commerc*", "commute*", "commuting", "companies", "company", "comput*",
+             "conferenc*", "conglom*",
+             "consult*", "consumer*", "contracts", "corp", "corporat*", "corps", "counc*", "couns*", "course*",
+             "coworker*", "credential*",
+             "credit*", "cubicle*", "curricul*", "customer*", "cv*", "deadline*", "dean*", "delegat*", "demote*",
+             "department*", "dept", "desk*",
+             "diplom*", "director*", "dissertat*", "dividend*", "doctor*", "dorm*", "dotcom", "downsiz*", "dropout*",
+             "duti*", "duty", "earn*",
+             "econ*", "edit*", "educat*", "elementary", "employ*", "esl", "exam", "exams", "excel*", "executive*",
+             "expel*", "expulsion*",
+             "factories", "factory", "facult*", "fail*", "fax*", "feedback", "finaliz*", "finals", "financ*", "fired",
+             "firing", "franchis*",
+             "frat", "fratern*", "freshm*", "gmat", "goal*", "gov", "govern*", "gpa", "grad", "grade*", "grading",
+             "graduat*", "gre", "hardwork*",
+             "headhunter*", "highschool*", "hire*", "hiring", "homework*", "inc", "income*", "incorp*", "industr*",
+             "instruct*", "interview*",
+             "inventory", "jd", "job*", "junior*", "keyboard*", "kinderg*", "labor*", "labour*", "laidoff", "laptop*",
+             "lawyer*", "layoff*",
+             "lead*", "learn*", "lectur*", "legal*", "librar*", "lsat", "ltd", "mailroom*", "majoring", "majors",
+             "manag*", "manufact*", "market*",
+             "masters", "math*", "mcat", "mda", "meeting*", "memo", "memos", "menial", "mentor*", "merger*", "mfg",
+             "mfr", "mgmt", "mgr", "midterm*",
+             "motiv*", "negotiat*", "ngo", "nonprofit*", "occupa*", "office*", "org", "organiz*", "outlin*",
+             "outsourc*", "overpaid", "overtime",
+             "overworked", "paper*", "pay*", "pc*", "pen", "pencil*", "pens", "pension*", "phd*", "photocop*", "pledg*",
+             "police", "policy",
+             "political", "politics", "practice", "prereq*", "presentation*", "presiden*", "procrastin*", "produc*",
+             "prof", "profession*",
+             "professor*", "profit*", "profs", "program*", "project", "projector*", "projects", "prom", "promot*",
+             "psych", "psychol*", "publish",
+             "qualifi*", "quiz*", "read", "recruit*", "register*", "registra*", "report*", "requir*", "research*",
+             "resource", "resources",
+             "resourcing", "responsib*", "resume", "retire*", "retiring", "review*", "rhetor*", "salar*", "scholar",
+             "scholaring", "scholarly",
+             "scholars", "scholarship*", "scholastic*", "school*", "scien*", "secretar*", "sector*", "semester*",
+             "senior*", "servic*",
+             "session*", "sickday*", "sickleave*", "sophom*", "sororit*", "staff*", "stapl*", "stipend*", "stock",
+             "stocked", "stocker",
+             "stocks", "student*", "studied", "studies", "studious", "study*", "succeed*", "success*", "supervis*",
+             "syllabus*", "taught", "tax",
+             "taxa*", "taxed", "taxes", "taxing", "teach*", "team*", "tenure*", "test", "tested", "testing", "tests",
+             "textbook*", "theses",
+             "thesis", "toefl", "trade*", "trading", "transcript*", "transfer*", "tutor*", "type*", "typing",
+             "undergrad*", "underpaid",
+             "unemploy*", "universit*", "unproduc*", "upperclass*", "varsit*", "vita", "vitas", "vocation*", "vp*",
+             "wage", "wages", "warehous*",
+             "welfare", "work ", "workabl*", "worked", "worker*", "working*", "works", "xerox*"]
+# liwc achievement word count
+liwc_achiev = ["abilit*", "able*", "accomplish*", "ace", "achiev*", "acquir*", "acquisition*", "adequa*", "advanc*",
+               "advantag*", "ahead",
+               "ambiti*", "approv*", "attain*", "attempt*", "authorit*", "award*", "beat", "beaten", "best", "better",
+               "bonus*", "burnout*",
+               "capab*", "celebrat*", "challeng*", "champ*", "climb*", "closure", "compet*", "conclud*", "conclus*",
+               "confidence", "confident",
+               "confidently", "conquer*", "conscientious*", "control*", "create*", "creati*", "crown*", "defeat*",
+               "determina*", "determined",
+               "diligen*", "domina*", "domote*", "driven", "dropout*", "earn*", "effect*", "efficien*", "effort*",
+               "elit*", "enabl*", "endeav*",
+               "excel*", "fail*", "finaliz*", "first", "firsts", "founded", "founder*", "founding", "fulfill*", "gain*",
+               "goal*", "hero*", "honor*",
+               "honour*", "ideal*", "importan*", "improve*", "improving", "inadequa*", "incapab*", "incentive*",
+               "incompeten*", "ineffect*",
+               "initiat*", "irresponsible*", "king*", "lazie*", "lazy", "lead*", "lesson*", "limit*", "lose", "loser*",
+               "loses", "losing", "loss*",
+               "lost", "master", "mastered", "masterful*", "mastering", "mastermind*", "masters", "mastery", "medal*",
+               "mediocr*", "motiv*",
+               "obtain*", "opportun*", "organiz*", "originat*", "outcome*", "overcome", "overconfiden*", "overtak*",
+               "perfect*", "perform*",
+               "persever*", "persist*", "plan", "planned", "planner*", "planning", "plans", "potential*", "power*",
+               "practice", "prais*",
+               "presiden*", "pride", "prize*", "produc*", "proficien*", "progress", "promot*", "proud*", "purpose*",
+               "queen", "queenly", "quit",
+               "quitt*", "rank", "ranked", "ranking", "ranks", "recover*", "requir*", "resolv*", "resourceful*",
+               "responsib*", "reward*", "skill",
+               "skilled", "skills", "solution*", "solve", "solved", "solves", "solving", "strateg*", "strength*",
+               "striv*", "strong*", "succeed*",
+               "success*", "super", "superb*", "surviv*", "team*", "top", "tried", "tries", "triumph*", "try", "trying",
+               "unable", "unbeat*",
+               "unproduc*", "unsuccessful*", "victor*", "win", "winn*", "wins", "won", "work ", "workabl*", "worked",
+               "worker*", "working*", "works"]
+
+
+def extract_bias_features(text):
+    features = {}
+    txt_lwr = str(text).lower()
+    words = nltk.word_tokenize(txt_lwr)
+    words = [w for w in words if len(w) > 0 and w not in '.?!,;:\'s"$']
+    unigrams = sorted(list(set(words)))
+    bigram_tokens = nltk.bigrams(words)
+    bigrams = [" ".join([w1, w2]) for w1, w2 in sorted(set(bigram_tokens))]
+    trigram_tokens = nltk.trigrams(words)
+    trigrams = [" ".join([w1, w2, w3]) for w1, w2, w3 in sorted(set(trigram_tokens))]
+    # print words
+    # print unigrams
+    # print bigrams
+    # print trigrams
+    # print "----------------------"
+
+    # word count
+    features['word_cnt'] = len(words)
+
+    # unique word count
+    features['unique_word_cnt'] = len(unigrams)
+
+    # coherence marker count
+    count = count_feature_list_freq(coherence, words, bigrams, trigrams)
+    features['cm_cnt'] = count
+    features['cm_rto'] = round(float(count) / float(len(words)), 4)
+
+    # degree modifier count
+    count = count_feature_list_freq(modifiers, words, bigrams, trigrams)
+    features['dm_cnt'] = count
+    features['dm_rto'] = round(float(count) / float(len(words)), 4)
+
+    # hedge word count
+    count = count_feature_list_freq(hedges, words, bigrams, trigrams)
+    features['hedge_cnt'] = count
+    features['hedge_rto'] = round(float(count) / float(len(words)), 4)
+
+    # factive verb count
+    count = count_feature_list_freq(factives, words, bigrams, trigrams)
+    features['factive_cnt'] = count
+    features['factive_rto'] = round(float(count) / float(len(words)), 4)
+
+    # assertive verb count
+    count = count_feature_list_freq(assertives, words, bigrams, trigrams)
+    features['assertive_cnt'] = count
+    features['assertive_rto'] = round(float(count) / float(len(words)), 4)
+
+    # implicative verb count
+    count = count_feature_list_freq(implicatives, words, bigrams, trigrams)
+    features['implicative_cnt'] = count
+    features['implicative_rto'] = round(float(count) / float(len(words)), 4)
+
+    # bias words and phrases count
+    count = count_feature_list_freq(biased, words, bigrams, trigrams)
+    features['bias_cnt'] = count
+    features['bias_rto'] = round(float(count) / float(len(words)), 4)
+
+    # opinion word count
+    count = count_feature_list_freq(opinionLaden, words, bigrams, trigrams)
+    features['opinion_cnt'] = count
+    features['opinion_rto'] = round(float(count) / float(len(words)), 4)
+
+    # weak subjective word count
+    count = count_feature_list_freq(subj_weak, words, bigrams, trigrams)
+    features['subj_weak_cnt'] = count
+    features['subj_weak_rto'] = round(float(count) / float(len(words)), 4)
+
+    # strong subjective word count
+    count = count_feature_list_freq(subj_strong, words, bigrams, trigrams)
+    features['subj_strong_cnt'] = count
+    features['subj_strong_rto'] = round(float(count) / float(len(words)), 4)
+
+    # composite sentiment score using VADER sentiment analysis package
+    compound_sentiment = vader_sentiment_analysis.polarity_scores(text)['compound']
+    features['vader_sentiment'] = compound_sentiment
+
+    # subjectivity score using Pattern.en
+    pattern_subjectivity = pattern_sentiment(text)[1]
+    features['subjectivity'] = round(pattern_subjectivity, 4)
+
+    # modality (certainty) score and mood using  http://www.clips.ua.ac.be/pages/pattern-en#modality
+    sentence = parse(text, lemmata=True)
+    sentenceObj = Sentence(sentence)
+    features['modality'] = round(modality(sentenceObj), 4)
+    features['mood'] = mood(sentenceObj)
+
+    # Flesch-Kincaid Grade Level (reading difficulty) using textstat
+    features['fk_gl'] = textstat.flesch_kincaid_grade(text)
+
+    # liwc 3rd person pronoun count (combines S/he and They)
+    count = count_liwc_list_freq(liwc_3pp, words)
+    features['liwc_3pp_cnt'] = count
+    features['liwc_3pp_rto'] = round(float(count) / float(len(words)), 4)
+
+    # liwc auxiliary verb count
+    count = count_liwc_list_freq(liwc_aux, words)
+    features['liwc_aux_cnt'] = count
+    features['liwc_aux_rto'] = round(float(count) / float(len(words)), 4)
+
+    # liwc adverb count
+    count = count_liwc_list_freq(liwc_adv, words)
+    features['liwc_adv_cnt'] = count
+    features['liwc_adv_rto'] = round(float(count) / float(len(words)), 4)
+
+    # liwc preposition count
+    count = count_liwc_list_freq(liwc_prep, words)
+    features['liwc_prep_cnt'] = count
+    features['liwc_prep_rto'] = round(float(count) / float(len(words)), 4)
+
+    # liwc conjunction count
+    count = count_liwc_list_freq(liwc_conj, words)
+    features['liwc_conj_cnt'] = count
+    features['liwc_conj_rto'] = round(float(count) / float(len(words)), 4)
+
+    # liwc discrepency word count
+    count = count_liwc_list_freq(liwc_discr, words)
+    features['liwc_discr_cnt'] = count
+    features['liwc_discr_rto'] = round(float(count) / float(len(words)), 4)
+
+    # liwc tentative word count
+    count = count_liwc_list_freq(liwc_tent, words)
+    features['liwc_tent_cnt'] = count
+    features['liwc_tent_rto'] = round(float(count) / float(len(words)), 4)
+
+    # liwc certainty word count
+    count = count_liwc_list_freq(liwc_cert, words)
+    features['liwc_cert_cnt'] = count
+    features['liwc_cert_rto'] = round(float(count) / float(len(words)), 4)
+
+    # liwc causation word count
+    count = count_liwc_list_freq(liwc_causn, words)
+    features['liwc_causn_cnt'] = count
+    features['liwc_causn_rto'] = round(float(count) / float(len(words)), 4)
+
+    # liwc work word count
+    count = count_liwc_list_freq(liwc_work, words)
+    features['liwc_work_cnt'] = count
+    features['liwc_work_rto'] = round(float(count) / float(len(words)), 4)
+
+    # liwc achievement word count
+    count = count_liwc_list_freq(liwc_achiev, words)
+    features['liwc_achiev_cnt'] = count
+    features['liwc_achiev_rto'] = round(float(count) / float(len(words)), 4)
+
+    return features
+
+
+def print_raw_data_for_features(list_of_sentences):
+    KEYS_DONE = False
+    for s in list_of_sentences:
+        feat = extract_bias_features(s)
+        if not KEYS_DONE:
+            print(feat.keys())
+            KEYS_DONE = True
+        print(feat.values())
+#print_raw_data_for_features(get_list_from_file('input_text'))
+
+def compute_bias(sentence_text):
+    features = extract_bias_features(sentence_text)
+    BS_SCORE = (-0.5581467 +
+          0.3477007 * features['vader_sentiment'] +
+          -2.0461103 * features['opinion_rto'] +
+          0.5164345 * features['modality'] +
+          8.3551389 * features['liwc_3pp_rto'] +
+          4.5965115 * features['liwc_tent_rto'] +
+          5.737545 * features['liwc_achiev_rto'] +
+          5.6573254 * features['liwc_discr_rto'] +
+          -0.953181 * features['bias_rto'] +
+          9.811681 * features['liwc_work_rto'] +
+          -16.6359498 * features['factive_rto'] +
+          3.059548 * features['hedge_rto'] +
+          -3.5770891 * features['assertive_rto'] +
+          5.0959142 * features['subj_strong_rto'] +
+          4.872367 * features['subj_weak_rto'])
+    return BS_SCORE
+
+def demo_sample_news_story_sentences():
+    for statement in get_list_from_file('input_text'):
+        bias = compute_bias(statement)
+        print(statement, bias)
+
+
+if __name__ == '__main__':
+    demo_sample_news_story_sentences()
