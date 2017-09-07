@@ -475,10 +475,10 @@ def print_raw_data_for_features(list_of_sentences):
             print(feat.keys())
             KEYS_DONE = True
         print(feat.values())
-#print_raw_data_for_features(get_list_from_file('input_text'))
+#print_raw_data_for_features(get_list_from_file('input_text_original'))
 
 def compute_bias(sentence_text):
-    features = extract_bias_features(sentence_text)
+    features = extract_bias_features(unicode(sentence_text, errors='ignore'))
     BS_SCORE = (-0.5581467 +
           0.3477007 * features['vader_sentiment'] +
           -2.0461103 * features['opinion_rto'] +
@@ -498,8 +498,9 @@ def compute_bias(sentence_text):
 
 def demo_sample_news_story_sentences():
     for statement in get_list_from_file('input_text'):
-        bias = compute_bias(statement)
-        print(statement, bias)
+        if len(statement) > 3:
+            bias = compute_bias(statement)
+            print(statement, bias)
 
 
 if __name__ == '__main__':
