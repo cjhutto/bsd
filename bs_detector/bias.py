@@ -4,9 +4,11 @@
 Created on June 04, 2015
 @author: C.J. Hutto
 """
+import multiprocessing
 
 import nltk
 # from vaderSentiment.vaderSentiment import sentiment as vader_sentiment
+from decorator import contextmanager
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer as vader_sentiment
 from pattern.text.en import parse, Sentence, parse, modality, mood
 from pattern.text.en import sentiment as pattern_sentiment
@@ -16,6 +18,12 @@ from textstat.textstat import textstat
 def get_list_from_file(file_name):
     with open(file_name, "r") as f1:
         l = f1.read().lower().split('\n')
+    return l
+
+
+def get_text_from_article_file(article_file):
+    with open(article_file, "r") as f1:
+        l = f1.read().lower()
     return l
 
 
@@ -480,7 +488,10 @@ def print_raw_data_for_features(list_of_sentences):
 # print_raw_data_for_features(get_list_from_file('input_text_original'))
 
 def compute_bias(sentence_text):
-    features = extract_bias_features(unicode(sentence_text, errors='ignore'))
+    if isinstance(sentence_text, unicode):
+        features = extract_bias_features(sentence_text)
+    else:
+        features = extract_bias_features(unicode(sentence_text, errors='ignore'))
     BS_SCORE = (-0.5581467 +
                 0.3477007 * features['vader_sentiment'] +
                 -2.0461103 * features['opinion_rto'] +
@@ -499,24 +510,28 @@ def compute_bias(sentence_text):
     return BS_SCORE
 
 
-def compute_statement_bias_len(statement_text):
-    return compute_statement_bias(statement_text, len)
+@contextmanager
+def poolcontext(*args, **kwargs):
+    pool = multiprocessing.Pool(*args, **kwargs)
+    yield pool
+    pool.terminate()
 
 
-def compute_statement_bias(statement_text, weight_function=None):
-    sentences = nltk.sent_tokenize(statement_text)
+def compute_statement_bias(statement_text, n_jobs=1):
+    sentences = nltk.sent_tokenize(statement_text.decode("ascii", "ignore"))
     max_len = max(map(len, sentences))
 
     if len(sentences) == 0:
         return 0
 
     avg_bias = 0
-    for sent in sentences:
-        bs_score = compute_bias(sent)
-        avg_bias += ((weight_function(sent)/max_len)*bs_score) if weight_function else bs_score
+
+    with poolcontext(processes=n_jobs) as pool:
+        bs_scores = pool.map(compute_bias, sentences)
+        avg_bias = sum(bs_scores)
 
     if len(sentences) > 0:
-        return round(float(avg_bias) / float(len(sentences)))
+        avg_bias = round(float(avg_bias) / float(len(sentences)), 4)
 
     return avg_bias
 
@@ -530,3 +545,4 @@ def demo_sample_news_story_sentences():
 
 if __name__ == '__main__':
     demo_sample_news_story_sentences()
+
