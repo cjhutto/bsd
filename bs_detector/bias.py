@@ -6,10 +6,10 @@ Created on June 04, 2015
 """
 
 import nltk
-#from vaderSentiment.vaderSentiment import sentiment as vader_sentiment
+# from vaderSentiment.vaderSentiment import sentiment as vader_sentiment
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer as vader_sentiment
-from pattern.en import parse, Sentence, parse, modality, mood
-from pattern.en import sentiment as pattern_sentiment
+from pattern.text.en import parse, Sentence, parse, modality, mood
+from pattern.text.en import sentiment as pattern_sentiment
 from textstat.textstat import textstat
 
 
@@ -475,26 +475,51 @@ def print_raw_data_for_features(list_of_sentences):
             print(feat.keys())
             KEYS_DONE = True
         print(feat.values())
-#print_raw_data_for_features(get_list_from_file('input_text_original'))
+
+
+# print_raw_data_for_features(get_list_from_file('input_text_original'))
 
 def compute_bias(sentence_text):
     features = extract_bias_features(unicode(sentence_text, errors='ignore'))
     BS_SCORE = (-0.5581467 +
-          0.3477007 * features['vader_sentiment'] +
-          -2.0461103 * features['opinion_rto'] +
-          0.5164345 * features['modality'] +
-          8.3551389 * features['liwc_3pp_rto'] +
-          4.5965115 * features['liwc_tent_rto'] +
-          5.737545 * features['liwc_achiev_rto'] +
-          5.6573254 * features['liwc_discr_rto'] +
-          -0.953181 * features['bias_rto'] +
-          9.811681 * features['liwc_work_rto'] +
-          -16.6359498 * features['factive_rto'] +
-          3.059548 * features['hedge_rto'] +
-          -3.5770891 * features['assertive_rto'] +
-          5.0959142 * features['subj_strong_rto'] +
-          4.872367 * features['subj_weak_rto'])
+                0.3477007 * features['vader_sentiment'] +
+                -2.0461103 * features['opinion_rto'] +
+                0.5164345 * features['modality'] +
+                8.3551389 * features['liwc_3pp_rto'] +
+                4.5965115 * features['liwc_tent_rto'] +
+                5.737545 * features['liwc_achiev_rto'] +
+                5.6573254 * features['liwc_discr_rto'] +
+                -0.953181 * features['bias_rto'] +
+                9.811681 * features['liwc_work_rto'] +
+                -16.6359498 * features['factive_rto'] +
+                3.059548 * features['hedge_rto'] +
+                -3.5770891 * features['assertive_rto'] +
+                5.0959142 * features['subj_strong_rto'] +
+                4.872367 * features['subj_weak_rto'])
     return BS_SCORE
+
+
+def compute_statement_bias_len(statement_text):
+    return compute_statement_bias(statement_text, len)
+
+
+def compute_statement_bias(statement_text, weight_function=None):
+    sentences = nltk.sent_tokenize(statement_text)
+    max_len = max(map(len, sentences))
+
+    if len(sentences) == 0:
+        return 0
+
+    avg_bias = 0
+    for sent in sentences:
+        bs_score = compute_bias(sent)
+        avg_bias += ((weight_function(sent)/max_len)*bs_score) if weight_function else bs_score
+
+    if len(sentences) > 0:
+        return round(float(avg_bias) / float(len(sentences)))
+
+    return avg_bias
+
 
 def demo_sample_news_story_sentences():
     for statement in get_list_from_file('input_text'):
