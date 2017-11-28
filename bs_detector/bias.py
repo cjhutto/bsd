@@ -546,3 +546,4 @@ def demo_sample_news_story_sentences():
 if __name__ == '__main__':
     demo_sample_news_story_sentences()
 
+    #print(compute_statement_bias(get_text_from_article_file("news_articles/brexit_01.txt"),4))
