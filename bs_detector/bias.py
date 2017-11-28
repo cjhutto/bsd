@@ -17,12 +17,12 @@ from textstat.textstat import textstat
 
 def get_list_from_file(file_name):
     with open(file_name, "r") as f1:
-        l = f1.read().lower().split('\n')
-    return l
+        lst = f1.read().lower().split('\n')
+    return lst
 
 
-def get_text_from_article_file(article_file):
-    with open(article_file, "r") as f1:
+def get_text_from_article_file(article_file_path):
+    with open(article_file_path, "r") as f1:
         l = f1.read().lower()
     return l
 
@@ -330,6 +330,7 @@ liwc_achiev = ["abilit*", "able*", "accomplish*", "ace", "achiev*", "acquir*", "
 
 def extract_bias_features(text):
     features = {}
+    text = unicode(text, errors='ignore')
     txt_lwr = str(text).lower()
     words = nltk.word_tokenize(txt_lwr)
     words = [w for w in words if len(w) > 0 and w not in '.?!,;:\'s"$']
@@ -475,38 +476,23 @@ def extract_bias_features(text):
     return features
 
 
-def print_raw_data_for_features(list_of_sentences):
-    KEYS_DONE = False
-    for s in list_of_sentences:
-        feat = extract_bias_features(s)
-        if not KEYS_DONE:
-            print(feat.keys())
-            KEYS_DONE = True
-        print(feat.values())
-
-
-# print_raw_data_for_features(get_list_from_file('input_text_original'))
-
 def compute_bias(sentence_text):
-    if isinstance(sentence_text, unicode):
-        features = extract_bias_features(sentence_text)
-    else:
-        features = extract_bias_features(unicode(sentence_text, errors='ignore'))
+    features = extract_bias_features(sentence_text)
     BS_SCORE = (-0.5581467 +
-                0.3477007 * features['vader_sentiment'] +
-                -2.0461103 * features['opinion_rto'] +
-                0.5164345 * features['modality'] +
-                8.3551389 * features['liwc_3pp_rto'] +
-                4.5965115 * features['liwc_tent_rto'] +
-                5.737545 * features['liwc_achiev_rto'] +
-                5.6573254 * features['liwc_discr_rto'] +
-                -0.953181 * features['bias_rto'] +
-                9.811681 * features['liwc_work_rto'] +
-                -16.6359498 * features['factive_rto'] +
-                3.059548 * features['hedge_rto'] +
-                -3.5770891 * features['assertive_rto'] +
-                5.0959142 * features['subj_strong_rto'] +
-                4.872367 * features['subj_weak_rto'])
+          0.3477007 * features['vader_sentiment'] +
+          -2.0461103 * features['opinion_rto'] +
+          0.5164345 * features['modality'] +
+          8.3551389 * features['liwc_3pp_rto'] +
+          4.5965115 * features['liwc_tent_rto'] +
+          5.737545 * features['liwc_achiev_rto'] +
+          5.6573254 * features['liwc_discr_rto'] +
+          -0.953181 * features['bias_rto'] +
+          9.811681 * features['liwc_work_rto'] +
+          -16.6359498 * features['factive_rto'] +
+          3.059548 * features['hedge_rto'] +
+          -3.5770891 * features['assertive_rto'] +
+          5.0959142 * features['subj_strong_rto'] +
+          4.872367 * features['subj_weak_rto'])
     return BS_SCORE
 
 
@@ -537,13 +523,61 @@ def compute_statement_bias(statement_text, n_jobs=1):
 
 
 def demo_sample_news_story_sentences():
-    for statement in get_list_from_file('input_text'):
+    sentences_list = get_list_from_file('input_text')
+    for statement in sentences_list:
         if len(statement) > 3:
             bias = compute_bias(statement)
             print(statement, bias)
+
+
+def make_tsv_output(list_of_sentences):
+    # make tab seperated values
+    KEYS_DONE = False
+    print("-- Example TSV: paste the following into Excel then do Data-->Text To Columns-->Delimited-->Tab-->Finish")
+    tsv_output = ''
+    for s in list_of_sentences:
+        if len(s) > 3:
+            feature_data = extract_bias_features(s)
+            if not KEYS_DONE:
+                tsv_output = 'sentence\t' + '\t'.join(feature_data.keys()) + '\n'
+                KEYS_DONE = True
+            str_vals = [str(f) for f in feature_data.values()]
+            tsv_output += s + '\t' + '\t'.join(str_vals) + '\n'
+    return tsv_output
+
+
+def make_html_output(list_of_sentences):
+    # make HTML table
+    KEYS_DONE = False
+    print("-- Example HTML: paste the following in a text editor and save it as 'bias.html', then open with a browser")
+    html_output = '<html><body><table border="1">'
+    for s in list_of_sentences:
+        if len(s) > 3:
+            feature_data = extract_bias_features(s)
+            if not KEYS_DONE:
+                html_output += '<tr><th>sentence' + '</th><th>' + '</th><th>'.join(feature_data.keys()) + '</th></tr>'
+                KEYS_DONE = True
+            str_vals = [str(f) for f in feature_data.values()]
+            html_output += '<tr><td>' + s + '</td><td>' + '</td><td>'.join(str_vals) + '</td></tr>'
+    html_output += '</table></body></html>'
+    return html_output
+
+
+def print_feature_data(list_of_sentences, output_type='tsv'):
+    output = ' -- no output available'
+    if output_type == 'html':
+        output = make_html_output(list_of_sentences)
+    elif output_type == 'tsv':
+        output = make_tsv_output(list_of_sentences)
+    print (output)
 
 
 if __name__ == '__main__':
     demo_sample_news_story_sentences()
 
     #print(compute_statement_bias(get_text_from_article_file("news_articles/brexit_01.txt"),4))
+
+    demo_output_types = True
+    if demo_output_types:
+        sentence_list = get_list_from_file('input_text')
+        print_feature_data(sentence_list, output_type='html')
