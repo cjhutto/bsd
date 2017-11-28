@@ -36,6 +36,7 @@ def append_to_file(file_name, line):
 
 def count_feature_list_freq(feat_list, words, bigrams, trigrams):
     cnt = 0
+    feat_list = set(feat_list)
     for w in words:
         if w in feat_list:
             cnt += 1
