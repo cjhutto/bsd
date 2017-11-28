@@ -50,11 +50,12 @@ def count_feature_list_freq(feat_list, words, bigrams, trigrams):
 
 def count_liwc_list_freq(liwc_list, words_list):
     cnt = 0
+    fliwc_list = [lw for lw in liwc_list if str(lw).endswith('*')]
     for w in words_list:
         if w in liwc_list:
             cnt += 1
-        for lw in liwc_list:
-            if str(lw).endswith('*') and str(w).startswith(lw):
+        for lw in fliwc_list:
+            if str(w).startswith(lw):
                 cnt += 1
     return cnt
 
