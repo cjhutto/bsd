@@ -330,7 +330,7 @@ liwc_achiev = ["abilit*", "able*", "accomplish*", "ace", "achiev*", "acquir*", "
 
 def extract_bias_features(text):
     features = {}
-    text = unicode(text, errors='ignore')
+    text = unicode(text, errors='ignore') if not isinstance(text, unicode) else text
     txt_lwr = str(text).lower()
     words = nltk.word_tokenize(txt_lwr)
     words = [w for w in words if len(w) > 0 and w not in '.?!,;:\'s"$']
@@ -503,7 +503,7 @@ def poolcontext(*args, **kwargs):
     pool.terminate()
 
 
-def compute_statement_bias(statement_text, n_jobs=1):
+def compute_statement_bias_mp(statement_text, n_jobs=1):
     sentences = nltk.sent_tokenize(statement_text.decode("ascii", "ignore"))
     max_len = max(map(len, sentences))
 
@@ -515,6 +515,26 @@ def compute_statement_bias(statement_text, n_jobs=1):
     with poolcontext(processes=n_jobs) as pool:
         bs_scores = pool.map(compute_bias, sentences)
         avg_bias = sum(bs_scores)
+
+    if len(sentences) > 0:
+        avg_bias = round(float(avg_bias) / float(len(sentences)), 4)
+
+    return avg_bias
+
+
+def compute_statement_bias(statement_text):
+    sentences = nltk.sent_tokenize(statement_text.decode("ascii", "ignore"))
+    max_len = max(map(len, sentences))
+
+    if len(sentences) == 0:
+        return 0
+
+    avg_bias = 0
+    bs_scores = []
+    for sent in sentences:
+        bs_scores.append(compute_bias(sent))
+
+    avg_bias = sum(bs_scores)
 
     if len(sentences) > 0:
         avg_bias = round(float(avg_bias) / float(len(sentences)), 4)
@@ -573,11 +593,13 @@ def print_feature_data(list_of_sentences, output_type='tsv'):
 
 
 if __name__ == '__main__':
-    demo_sample_news_story_sentences()
+    # demo_sample_news_story_sentences()
 
-    #print(compute_statement_bias(get_text_from_article_file("news_articles/brexit_01.txt"),4))
+    # Demo article file
+    #print(compute_statement_bias_mp(get_text_from_article_file("news_articles/brexit_01.txt"), 4))
+    print(compute_statement_bias(get_text_from_article_file("news_articles/brexit_01.txt")))
 
-    demo_output_types = True
-    if demo_output_types:
-        sentence_list = get_list_from_file('input_text')
-        print_feature_data(sentence_list, output_type='html')
+    #demo_output_types = True
+    #if demo_output_types:
+    #    sentence_list = get_list_from_file('input_text')
+    #    print_feature_data(sentence_list, output_type='html')
