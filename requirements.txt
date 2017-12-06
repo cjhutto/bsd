@@ -1,0 +1,6 @@
+vaderSentiment
+pattern
+nltk
+decorators
+requests
+textstat
