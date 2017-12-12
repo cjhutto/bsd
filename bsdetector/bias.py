@@ -4,7 +4,9 @@
 Created on June 04, 2015
 @author: C.J. Hutto
 """
+import json
 import multiprocessing
+import os
 
 import nltk
 # from vaderSentiment.vaderSentiment import sentiment as vader_sentiment
@@ -15,7 +17,18 @@ from pattern.text.en import sentiment as pattern_sentiment
 from textstat.textstat import textstat
 
 
+class Lexicon(object):
+    pth = os.path.join(os.path.dirname(__file__), 'lexicon.json')
+    print(pth)
+    wordlists = []
+    with open(pth, 'r') as fp:
+        wordlists = json.loads(fp.read())
+    print(list(wordlists.keys()))
+
+
+
 def get_list_from_file(file_name):
+    return Lexicon.wordlists[os.path.basename(file_name)]
     with open(file_name, "r") as f1:
         lst = f1.read().lower().split('\n')
     return lst
