@@ -4,4 +4,5 @@ pwd
 cd opt
 pwd
 pip install .
-pytest test
+cd test
+pytest .

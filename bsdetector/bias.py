@@ -4,9 +4,11 @@
 Created on June 04, 2015
 @author: C.J. Hutto
 """
+from __future__ import print_function
 import json
 import multiprocessing
 import os
+import sys
 
 import nltk
 # from vaderSentiment.vaderSentiment import sentiment as vader_sentiment
@@ -18,33 +20,34 @@ from textstat.textstat import textstat
 
 
 class Lexicon(object):
+    """Lexicon is a class with static members for managing the existing lists of words.
+
+    Use Lexicon.list(key) in order to access the list with name key.
+    """
     pth = os.path.join(os.path.dirname(__file__), 'lexicon.json')
     print(pth)
-    wordlists = []
-    with open(pth, 'r') as fp:
-        wordlists = json.loads(fp.read())
+    wordlists = {}
+    with open(pth, 'r') as filp:
+        wordlists = json.loads(filp.read())
     print(list(wordlists.keys()))
 
-
-
-def get_list_from_file(file_name):
-    return Lexicon.wordlists[os.path.basename(file_name)]
-    with open(file_name, "r") as f1:
-        lst = f1.read().lower().split('\n')
-    return lst
+    @classmethod
+    def list(cls, name):
+        """list(name) get the word list associated with key name"""
+        return cls.wordlists[os.path.basename(name)]
 
 
 def get_text_from_article_file(article_file_path):
-    with open(article_file_path, "r") as f1:
-        l = f1.read().lower()
+    with open(article_file_path, "r") as filep:
+        l = filep.read().lower()
     return l
 
 
 def append_to_file(file_name, line):
-    # ...append a line of text to a file
-    with open(file_name, 'a') as f1:
-        f1.write(line)
-        f1.write("\n")
+    "append a line of text to a file"
+    with open(file_name, 'a') as filep:
+        filep.write(line)
+        filep.write("\n")
 
 
 def count_feature_list_freq(feat_list, words, bigrams, trigrams):
@@ -76,34 +79,34 @@ def count_liwc_list_freq(liwc_list, words_list):
 # Joan B. Hooper. 1975. On assertive predicates. In J. Kimball, editor,
 # Syntax and Semantics, volume 4, pages 91–124. Academic Press, New York.
 #########################################################################
-assertives = get_list_from_file('../ref_lexicons/ref_assertive_verbs')
-factives = get_list_from_file('../ref_lexicons/ref_factive_verbs')
+assertives = Lexicon.list('../ref_lexicons/ref_assertive_verbs')
+factives = Lexicon.list('../ref_lexicons/ref_factive_verbs')
 
 ##### List of hedges extracted from:
 # Ken Hyland. 2005. Metadiscourse: Exploring Interaction in Writing.
 # Continuum, London and New York.
 #########################################################################
-hedges = get_list_from_file('../ref_lexicons/ref_hedge_words')
+hedges = Lexicon.list('../ref_lexicons/ref_hedge_words')
 
 ##### List of implicative verbs extracted from:
 # Lauri Karttunen. 1971. Implicative verbs. Language, 47(2):340–358.
 #########################################################################
-implicatives = get_list_from_file('../ref_lexicons/ref_implicative_verbs')
+implicatives = Lexicon.list('../ref_lexicons/ref_implicative_verbs')
 
 ##### List of strong/weak subjective words extracted from:
 # Theresa Wilson, Janyce Wiebe and Paul Hoffmann (2005). Recognizing Contextual
 # Polarity in Phrase-Level Sentiment Analysis. Proceedings of HLT/EMNLP 2005,
 # Vancouver, Canada.
 #########################################################################
-subj_strong = get_list_from_file('../ref_lexicons/ref_subj_strong')
-subj_weak = get_list_from_file('../ref_lexicons/ref_subj_weak')
+subj_strong = Lexicon.list('../ref_lexicons/ref_subj_strong')
+subj_weak = Lexicon.list('../ref_lexicons/ref_subj_weak')
 
 ##### List of bias words extracted from:
 # Marta Recasens, Cristian Danescu-Niculescu-Mizil, and Dan
 # Jurafsky. 2013. Linguistic Models for Analyzing and Detecting Biased
 # Language. Proceedings of ACL 2013.
 #########################################################################
-biased = get_list_from_file('../ref_lexicons/ref_bias_words')
+biased = Lexicon.list('../ref_lexicons/ref_bias_words')
 
 ##### List of coherence markers extracted from:
 # Knott, Alistair. 1996. A Data-Driven Methodology for Motivating a Set of
@@ -112,22 +115,22 @@ biased = get_list_from_file('../ref_lexicons/ref_bias_words')
 # import re
 # def find_whole_word(w):
 #    return re.compile(r'\b({0})\b'.format(w), flags=re.IGNORECASE).search
-# lst = sorted(get_list_from_file('ref_coherence_markers'))
+# lst = sorted(Lexicon.list('ref_coherence_markers'))
 # for w in lst:
 #    excl = [i for i in lst if i != w]
 #    for i in excl:
 #        if find_whole_word(w)(i):
 #            print w, "-->", i
 #########################################################################
-coherence = get_list_from_file('../ref_lexicons/ref_coherence_markers')
+coherence = Lexicon.list('../ref_lexicons/ref_coherence_markers')
 
 ##### List of degree modifiers and opinion words extracted from:
 # Hutto, C.J. & Gilbert, E.E. (2014). VADER: A Parsimonious Rule-based Model for
 #  Sentiment Analysis of Social Media Text. Eighth International Conference on
 #  Weblogs and Social Media (ICWSM-14). Ann Arbor, MI, June 2014.
 #########################################################################
-modifiers = get_list_from_file('../ref_lexicons/ref_degree_modifiers')
-opinionLaden = get_list_from_file('../ref_lexicons/ref_vader_words')
+modifiers = Lexicon.list('../ref_lexicons/ref_degree_modifiers')
+opinionLaden = Lexicon.list('../ref_lexicons/ref_vader_words')
 vader_sentiment_analysis = vader_sentiment()
 
 ##### Lists of LIWC category words
@@ -352,11 +355,6 @@ def extract_bias_features(text):
     bigrams = [" ".join([w1, w2]) for w1, w2 in sorted(set(bigram_tokens))]
     trigram_tokens = nltk.trigrams(words)
     trigrams = [" ".join([w1, w2, w3]) for w1, w2, w3 in sorted(set(trigram_tokens))]
-    # print words
-    # print unigrams
-    # print bigrams
-    # print trigrams
-    # print "----------------------"
 
     # word count
     features['word_cnt'] = len(words)
@@ -424,9 +422,9 @@ def extract_bias_features(text):
 
     # modality (certainty) score and mood using  http://www.clips.ua.ac.be/pages/pattern-en#modality
     sentence = parse(text, lemmata=True)
-    sentenceObj = Sentence(sentence)
-    features['modality'] = round(modality(sentenceObj), 4)
-    features['mood'] = mood(sentenceObj)
+    sentence_obj = Sentence(sentence)
+    features['modality'] = round(modality(sentence_obj), 4)
+    features['mood'] = mood(sentence_obj)
 
     # Flesch-Kincaid Grade Level (reading difficulty) using textstat
     features['fk_gl'] = textstat.flesch_kincaid_grade(text)
@@ -490,33 +488,50 @@ def extract_bias_features(text):
 
 
 def compute_bias(sentence_text):
+    """run the trained regression coefficients against the feature dict"""
     features = extract_bias_features(sentence_text)
-    BS_SCORE = (-0.5581467 +
-          0.3477007 * features['vader_sentiment'] +
-          -2.0461103 * features['opinion_rto'] +
-          0.5164345 * features['modality'] +
-          8.3551389 * features['liwc_3pp_rto'] +
-          4.5965115 * features['liwc_tent_rto'] +
-          5.737545 * features['liwc_achiev_rto'] +
-          5.6573254 * features['liwc_discr_rto'] +
-          -0.953181 * features['bias_rto'] +
-          9.811681 * features['liwc_work_rto'] +
-          -16.6359498 * features['factive_rto'] +
-          3.059548 * features['hedge_rto'] +
-          -3.5770891 * features['assertive_rto'] +
-          5.0959142 * features['subj_strong_rto'] +
-          4.872367 * features['subj_weak_rto'])
-    return BS_SCORE
+    bs_score = (-0.5581467 +
+                0.3477007 * features['vader_sentiment'] +
+                -2.0461103 * features['opinion_rto'] +
+                0.5164345 * features['modality'] +
+                8.3551389 * features['liwc_3pp_rto'] +
+                4.5965115 * features['liwc_tent_rto'] +
+                5.737545 * features['liwc_achiev_rto'] +
+                5.6573254 * features['liwc_discr_rto'] +
+                -0.953181 * features['bias_rto'] +
+                9.811681 * features['liwc_work_rto'] +
+                -16.6359498 * features['factive_rto'] +
+                3.059548 * features['hedge_rto'] +
+                -3.5770891 * features['assertive_rto'] +
+                5.0959142 * features['subj_strong_rto'] +
+                4.872367 * features['subj_weak_rto'])
+    return bs_score
 
 
 @contextmanager
 def poolcontext(*args, **kwargs):
+    """poolcontext makes it easier to run a function with a process Pool.
+
+    Example:
+
+            with poolcontext(processes=n_jobs) as pool:
+                bs_scores = pool.map(compute_bias, sentences)
+                avg_bias = sum(bs_scores)
+    """
     pool = multiprocessing.Pool(*args, **kwargs)
     yield pool
     pool.terminate()
 
 
+def roundmean(avg_bias, sentences, k=4):
+    """Compute the average and round to k places"""
+    avg_bias = round(float(avg_bias) / float(len(sentences)), k)
+    return avg_bias
+
+
 def compute_statement_bias_mp(statement_text, n_jobs=1):
+    """compute_statement_bias_mp a version of compute_statement_bias
+    with the multiprocessing pool manager."""
     sentences = nltk.sent_tokenize(statement_text.decode("ascii", "ignore"))
     max_len = max(map(len, sentences))
 
@@ -530,12 +545,18 @@ def compute_statement_bias_mp(statement_text, n_jobs=1):
         avg_bias = sum(bs_scores)
 
     if len(sentences) > 0:
-        avg_bias = round(float(avg_bias) / float(len(sentences)), 4)
+        avg_bias = roundmean(avg_bias, sentences)
 
     return avg_bias
 
 
 def compute_statement_bias(statement_text):
+    """compute the bias of a statement from the test.
+
+    Warning: assumes that the statement is in ascii.
+
+    returns the average bias over the entire text broken down by sentence.
+    """
     sentences = nltk.sent_tokenize(statement_text.decode("ascii", "ignore"))
     max_len = max(map(len, sentences))
 
@@ -550,69 +571,84 @@ def compute_statement_bias(statement_text):
     avg_bias = sum(bs_scores)
 
     if len(sentences) > 0:
-        avg_bias = round(float(avg_bias) / float(len(sentences)), 4)
+        avg_bias = roundmean(avg_bias, sentences)
 
     return avg_bias
 
 
-def demo_sample_news_story_sentences():
-    sentences_list = get_list_from_file('input_text')
-    for statement in sentences_list:
-        if len(statement) > 3:
-            bias = compute_bias(statement)
-            print(statement, bias)
-
-
 def make_tsv_output(list_of_sentences):
+    """print out a table of output as a tab separated file."""
     # make tab seperated values
-    KEYS_DONE = False
-    print("-- Example TSV: paste the following into Excel then do Data-->Text To Columns-->Delimited-->Tab-->Finish")
+    keys_done = False
+    logmessage = "-- Example TSV: paste the following into Excel then do Data-->Text To Columns-->Delimited-->Tab-->Finish"
+    print(logmessage, file=sys.stderr)
     tsv_output = ''
-    for s in list_of_sentences:
-        if len(s) > 3:
-            feature_data = extract_bias_features(s)
-            if not KEYS_DONE:
+    for sent in list_of_sentences:
+        if len(sent) > 3:
+            feature_data = extract_bias_features(sent)
+            if not keys_done:
                 tsv_output = 'sentence\t' + '\t'.join(feature_data.keys()) + '\n'
-                KEYS_DONE = True
+                keys_done = True
             str_vals = [str(f) for f in feature_data.values()]
-            tsv_output += s + '\t' + '\t'.join(str_vals) + '\n'
+            tsv_output += sent + '\t' + '\t'.join(str_vals) + '\n'
     return tsv_output
 
 
 def make_html_output(list_of_sentences):
+    """create a table of output as an html table."""
     # make HTML table
-    KEYS_DONE = False
-    print("-- Example HTML: paste the following in a text editor and save it as 'bias.html', then open with a browser")
+    sep = '</td><td>'
+    hsep = '</th><th>'
+    keys_done = False
+    logmessage = "-- Example HTML: paste the following in a text editor and save it as 'bias.html', then open with a browser"
+    print(logmessage)
     html_output = '<html><body><table border="1">'
-    for s in list_of_sentences:
-        if len(s) > 3:
-            feature_data = extract_bias_features(s)
-            if not KEYS_DONE:
-                html_output += '<tr><th>sentence' + '</th><th>' + '</th><th>'.join(feature_data.keys()) + '</th></tr>'
-                KEYS_DONE = True
+    for sent in list_of_sentences:
+        if len(sent) > 3:
+            feature_data = extract_bias_features(sent)
+            if not keys_done:
+                html_output += '<tr><th>sentence' + hsep + hsep.join(feature_data.keys()) + '</th></tr>'
+                keys_done = True
             str_vals = [str(f) for f in feature_data.values()]
-            html_output += '<tr><td>' + s + '</td><td>' + '</td><td>'.join(str_vals) + '</td></tr>'
+            html_output += '<tr><td>' + sent + sep + sep.join(str_vals) + '</td></tr>'
     html_output += '</table></body></html>'
     return html_output
 
 
-def print_feature_data(list_of_sentences, output_type='tsv'):
+def print_feature_data(list_of_sentences, output_type='tsv', file=sys.stdout):
+    """print the data in either html or tsv format"""
     output = ' -- no output available'
     if output_type == 'html':
         output = make_html_output(list_of_sentences)
     elif output_type == 'tsv':
         output = make_tsv_output(list_of_sentences)
-    print (output)
+    print(output, file=file)
 
+
+def enumerate_sentences(fpath='input_text'):
+    """print the bias of each sentence in a document."""
+    sentences_list = get_text_from_article_file(fpath).split('\n')
+    for statement in sentences_list:
+        if len(statement) > 3:
+            biasq = compute_bias(statement)
+            yield(biasq, statement)
+        else:
+            print('statement is too short: {}'.format(statement))
 
 if __name__ == '__main__':
-    # demo_sample_news_story_sentences()
-
     # Demo article file
     #print(compute_statement_bias_mp(get_text_from_article_file("news_articles/brexit_01.txt"), 4))
-    print(compute_statement_bias(get_text_from_article_file("news_articles/brexit_01.txt")))
+    FPATH = 'input_text'
+    for bias, stmt in enumerate_sentences(FPATH):
+        msg = 'Bias: {}\t {}'.format(bias, stmt)
+        print(msg)
+
+    NEWSPATH = "news_articles/brexit_01.txt"
+    print('loading news article: {}'.format(NEWSPATH), file=sys.stderr)
+    STATEMENT = get_text_from_article_file(NEWSPATH)
+    print(compute_statement_bias(STATEMENT))
 
     #demo_output_types = True
     #if demo_output_types:
-    #    sentence_list = get_list_from_file('input_text')
+    #    sentence_list = Lexicon.list('input_text')
     #    print_feature_data(sentence_list, output_type='html')
