@@ -2,6 +2,9 @@
 BSD - Bias Statement Detector
 ====================================
 
+.. image:: https://travis-ci.org/cjhutto/bsd.svg?branch=master
+    :target: https://travis-ci.org/cjhutto/bsd
+    
 Bias Statement Detector (BSD) computationally detects and quantifies the degree of bias in sentence-level text of news stories. We incorporate common linguistic and structural cues of biased language, including sentiment analysis, subjectivity analysis, modality (expressed certainty), the use of factive verbs, hedge phrases, and many other features. The model achieved greater than 97% accuracy, and accounted for 85.9% of the variance in human judgements of perceived bias in news-like text. Using 10-fold cross-validation, we verified that the model is able to consistently predict the average bias (mean of 91 human participant judgements) with remarkably good fit. It is fully open-sourced under the `[MIT License] <http://choosealicense.com/>`_ (we sincerely appreciate all attributions and readily accept most contributions, but please don't hold us liable).
 
 * Introduction_
