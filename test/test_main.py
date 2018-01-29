@@ -22,3 +22,13 @@ def test_compute():
     fpath = 'input.txt'
     bias.enumerate_sentences(fpath)
     bias.compute_bias('brexit.txt')
+
+def testnormalize():
+    from bsdetector import bias
+    text = 'the cat sucks'
+    features = bias.extract_bias_features(text)
+    print(bias.normalized_features(features))
+
+
+
+

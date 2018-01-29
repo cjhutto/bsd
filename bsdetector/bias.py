@@ -435,23 +435,51 @@ def extract_bias_features(text):
     features["mean_nonquote_length"] = quote_dict["mean_nonquote_length"]
     return features
 
+modelbeta = [-0.5581467,
+             0.3477007,
+             -2.0461103,
+             0.5164345,
+             8.3551389,
+             4.5965115,
+             5.737545,
+             -0.953181,
+             9.811681,
+             -16.6359498,
+             3.059548,
+             -3.5770891,
+             5.0959142]
+
+modelkeys = ['vader_sentiment',
+             'opinion_rto',
+             'modality',
+             'liwc_3pp_rto',
+             'liwc_tent_rto',
+             'liwc_achiev_rto',
+             'partisan_rto',
+             'liwc_work_rto',
+             'presup_rto',
+             'hedge_rto',
+             'assertive_rto',
+             'opinion_rto']
+
+def featurevector(features):
+    """Extract the features into a vector in the right order, prepends a 1 for constant term."""
+    l = [1]
+    l.extend(features[k] for k in modelkeys)
+    return l
+
+def normalized_features(features):
+    """Normalize the features by dividing by the coefficient."""
+    beta = modelbeta
+    fvec = featurevector(features)
+    norm = lambda i: fvec[i]/modelbeta[i]
+    return [norm(i) for i in range(len(modelbeta))]
 
 def compute_bias(sentence_text):
     """run the trained regression coefficients against the feature dict"""
     features = extract_bias_features(sentence_text)
-    bs_score = (-0.5581467 +
-                0.3477007 * features['vader_sentiment'] +
-                -2.0461103 * features['opinion_rto'] +
-                0.5164345 * features['modality'] +
-                8.3551389 * features['liwc_3pp_rto'] +
-                4.5965115 * features['liwc_tent_rto'] +
-                5.737545 * features['liwc_achiev_rto'] +
-                -0.953181 * features['partisan_rto'] +
-                9.811681 * features['liwc_work_rto'] +
-                -16.6359498 * features['presup_rto'] +
-                3.059548 * features['hedge_rto'] +
-                -3.5770891 * features['assertive_rto'] +
-                5.0959142 * features['opinion_rto'])
+    coord = featurevector(features)
+    bs_score = sum(modelbeta[i]*coord[i] for i in range(len(modelkeys)))
     return bs_score
 
 
