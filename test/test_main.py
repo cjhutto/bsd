@@ -10,7 +10,7 @@ def test_imports():
 
 def assert_statement(stat):
     from bsdetector import bias
-    r = bias.compute_statement_bias(stat)
+    r = bias.compute_bias(stat)
     print(stat)
     print(r)
     return r
@@ -21,4 +21,4 @@ def test_compute():
     assert_statement("The cat sucks.")
     fpath = 'input.txt'
     bias.enumerate_sentences(fpath)
-    bias.compute_statement_bias_mp('brexit.txt')
+    bias.compute_bias('brexit.txt')
