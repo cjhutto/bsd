@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # coding: utf-8
 """
+Bias Sentence Investigator (BSI): Detecting and Quantifying the Degree of Bias in Text
 Created on June 04, 2015
 @author: C.J. Hutto
 """
@@ -8,13 +9,13 @@ from __future__ import print_function
 import json
 import multiprocessing
 import os
-import sys
 import re
-
+import sys
 from collections import OrderedDict
 from decorator import contextmanager
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer as vader_sentiment
 from pattern.text.en import Sentence, parse, modality
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer as Vader_Sentiment
+from caster import caster
 
 
 class Lexicons(object):
@@ -134,12 +135,12 @@ def lexicon_count(text, removepunct=True):
 
 
 def sentence_count(text):
-    ignoreCount = 0
+    ignore_count = 0
     sentences = split_into_sentences(text)
     for sentence in sentences:
         if lexicon_count(sentence) <= 2:
-            ignoreCount = ignoreCount + 1
-    sentence_cnt = len(sentences) - ignoreCount
+            ignore_count = ignore_count + 1
+    sentence_cnt = len(sentences) - ignore_count
     if sentence_cnt < 1:
         sentence_cnt = 1
     return sentence_cnt
@@ -148,68 +149,42 @@ def sentence_count(text):
 def avg_sentence_length(text):
     lc = lexicon_count(text)
     sc = sentence_count(text)
-    ASL = float(lc / sc)
-    return round(ASL, 1)
+    a_s_l = float(lc / sc)
+    return round(a_s_l, 1)
 
 
 def avg_syllables_per_word(text):
     syllable = syllable_count(text)
     words = lexicon_count(text)
     try:
-        ASPW = float(syllable) / float(words)
-        return round(ASPW, 1)
+        a_s_p_w = float(syllable) / float(words)
+        return round(a_s_p_w, 1)
     except ZeroDivisionError:
         # print "Error(ASyPW): Number of words are zero, cannot divide"
         return 1
 
 
 def flesch_kincaid_grade(text):
-    ASL = avg_sentence_length(text)
-    ASW = avg_syllables_per_word(text)
-    FKRA = float(0.39 * ASL) + float(11.8 * ASW) - 15.59
-    return round(FKRA, 1)
+    a_s_l = avg_sentence_length(text)
+    a_s_w = avg_syllables_per_word(text)
+    f_k_r_a = float(0.39 * a_s_l) + float(11.8 * a_s_w) - 15.59
+    return round(f_k_r_a, 1)
 
 
-def count_feature_list_freq(feat_list, words, bigrams, trigrams):
-    # Note: probably could be cleaned up a lot... e.g., ... look for whole words
-    # import re
-    # def find_whole_word(w):
-    #    return re.compile(r'\b({0})\b'.format(w), flags=re.IGNORECASE).search
-    # lst = sorted(Lexicon.list('ref_coherence_markers'))
-    # for w in lst:
-    #    excl = [i for i in lst if i != w]
-    #    for i in excl:
-    #        if find_whole_word(w)(i):
-    #            print w, "-->", i
+def count_feature_freq(feature_list, tokens_list, txt_lwr):
     cnt = 0
-    for w in words:
-        if w in feat_list:
+    # count unigrams
+    for w in tokens_list:
+        if w in feature_list:
             cnt += 1
-    for b in bigrams:
-        if b in feat_list:
-            cnt += 1
-    for t in trigrams:
-        if t in feat_list:
-            cnt += 1
-    return cnt
-
-
-def count_phrase_freq(phrase_list, txt_lwr):
-    cnt = 0
-    for phrase in phrase_list:
-        if phrase in txt_lwr:
-            cnt += 1
-    return cnt
-
-
-def count_liwc_list_freq(liwc_list, words_list):
-    cnt = 0
-    for w in words_list:
-        if w in liwc_list:
-            cnt += 1
-        for lw in liwc_list:
-            if str(lw).endswith('*') and str(w).startswith(lw):
+        # count wildcard features
+        for feature in feature_list:
+            if str(feature).endswith('*') and str(w).startswith(feature[:-1]):
                 cnt += 1
+    # count n_gram phrase features
+    for feature in feature_list:
+        if " " in feature and feature in txt_lwr:
+            cnt += str(txt_lwr).count(feature)
     return cnt
 
 
@@ -246,48 +221,51 @@ def check_quotes(text):
     return quote_info
 
 
+def get_caster(text, top_n=10):
+    """ Contextual Aspect Summary and Topical-Entity Recognition
+        Returns a Python dictionary {KeyWordPhrase : Importance_Score} of the top-N  most important contextual aspects
+    """
+    cstr_dict = OrderedDict()
+    contextual_aspect_summary = caster(text, sort_by="both", term_freq_threshold=2, cos_sim_threshold=0.01, top_n=top_n)
+    for keywordphrase, score in contextual_aspect_summary:
+        cstr_dict[keywordphrase] = round(score, 3)
+    return cstr_dict
+
+
 ref_lexicons = Lexicons()
 
-##### List of presupposition verbs (comprised of Factive & Implicative verbs):
+##### List of presupposition verbs (comprised of Factive, Implicative, Coherence, Causation, & Assertion markers):
 ### Factive verbs derived from:
 # Joan B. Hooper. 1975. On assertive predicates. In J. Kimball, editor,
 # Syntax and Semantics, volume 4, pages 91–124. Academic Press, New York.
 ### Implicative verbs derived from
 # Lauri Karttunen. 1971. Implicative verbs. Language, 47(2):340–358.
-#########################################################################
-presup = ref_lexicons.list('ref_presup_verbs')
-
 ##### List of coherence markers derived from:
 # Knott, Alistair. 1996. A Data-Driven Methodology for Motivating a Set of
 # Coherence Relations. Ph.D. dissertation, University of Edinburgh, UK.
-#########################################################################
-coherence = ref_lexicons.list('ref_coherence_markers')
-
 ##### List of assertive derived from:
 # Joan B. Hooper. 1975. On assertive predicates. In J. Kimball, editor,
 # Syntax and Semantics, volume 4, pages 91–124. Academic Press, New York.
+##### List of Causation words from LIWC
 #########################################################################
-assertives = ref_lexicons.list('ref_assertive_verbs')
-
-##### List of degree modifiers derived from:
-# Hutto, C.J. & Gilbert, E.E. (2014). VADER: A Parsimonious Rule-based Model for
-#  Sentiment Analysis of Social Media Text. Eighth International Conference on
-#  Weblogs and Social Media (ICWSM-14). Ann Arbor, MI, June 2014.
-#########################################################################
-modifiers = ref_lexicons.list('ref_degree_modifiers')
+presup = ref_lexicons.list('presupposition')
 
 ##### List of hedge words derived from:
 # Ken Hyland. 2005. Metadiscourse: Exploring Interaction in Writing.
 # Continuum, London and New York.
+##### List of tentative words from LIWC
+##### List of NPOV hedge & "weasel" words to watch from
+# https://en.wikipedia.org/wiki/Wikipedia:Manual_of_Style/Words_to_watch
 #########################################################################
-hedges = ref_lexicons.list('ref_hedge_words')
+doubt = ref_lexicons.list('doubt_markers')
 
-##### List of bias words derived from:
-# Marta Recasens, Cristian Danescu-Niculescu-Mizil, and Dan
-# Jurafsky. 2013. Linguistic Models for Analyzing and Detecting Biased
-# Language. Proceedings of ACL 2013.
+##### List of biased/partisan words derived from:
+# Marta Recasens, Cristian Danescu-Niculescu-Mizil, and Dan Jurafsky. 2013. Linguistic Models for
+#     Analyzing and Detecting Biased Language. Proceedings of ACL 2013.
+# and
+# Gentzkow, Econometrica 2010: What Drives Media Slant? Evidence from U.S. Daily Newspapers
 #########################################################################
-partisan = ref_lexicons.list('ref_partisan_words')
+partisan = ref_lexicons.list('partisan')
 
 ##### List of opinion laden words extracted from:
 # Hutto, C.J. & Gilbert, E.E. (2014). VADER: A Parsimonious Rule-based Model for
@@ -297,40 +275,41 @@ partisan = ref_lexicons.list('ref_partisan_words')
 # Theresa Wilson, Janyce Wiebe and Paul Hoffmann (2005). Recognizing Contextual
 # Polarity in Phrase-Level Sentiment Analysis. Proceedings of HLT/EMNLP 2005,
 # Vancouver, Canada.
+##### List of degree modifiers derived from:
+# Hutto, C.J. & Gilbert, E.E. (2014). VADER: A Parsimonious Rule-based Model for
+#  Sentiment Analysis of Social Media Text. Eighth International Conference on
+#  Weblogs and Social Media (ICWSM-14). Ann Arbor, MI, June 2014.
 #########################################################################
-value_laden = ref_lexicons.list('ref_value_laden')
-vader_sentiment_analysis = vader_sentiment()
+value_laden = ref_lexicons.list('value_laden')
+vader_sentiment_analysis = Vader_Sentiment()
 
 ##### List of figurative expressions derived from:
-# English-language idioms
+###English-language idioms
 # https://en.wikipedia.org/wiki/English-language_idioms.
 # and
-# List of English-language metaphors
+### List of English-language metaphors
 # https://en.wikipedia.org/wiki/List_of_English-language_metaphors
 # and
-# List of political metaphors
+### List of political metaphors
 # https://en.wikipedia.org/wiki/List_of_political_metaphors
+### List of NPOV "puffery & peacock" words to watch from
+# https://en.wikipedia.org/wiki/Wikipedia:Manual_of_Style/Words_to_watch
 #########################################################################
-figurative = ref_lexicons.list('ref_figurative')
+figurative = ref_lexicons.list('figurative')
 
-##### Lists of LIWC category words
-# liwc 3rd person pronoun count (combines S/he and They)
-liwc_3pp = ref_lexicons.list('ref_liwc_3pp')
-# liwc achievement word count
-liwc_achiev = ref_lexicons.list('ref_liwc_achiev')
-# liwc causation word count
-liwc_causn = ref_lexicons.list('ref_liwc_causn')
-# liwc self reference promouns word count
-liwc_self = ref_lexicons.list('ref_liwc_self')
-# liwc tentative word count
-liwc_tent = ref_lexicons.list('ref_liwc_tent')
-# liwc work word count
-liwc_work = ref_lexicons.list('ref_liwc_work')
+##### Lists of attribution bias/actor-observer bias/ultimate attribution markers
+# LIWC 3rd person pronouns (combines S/he and They)
+# LIWC achievement words
+# LIWC work words
+attribution = ref_lexicons.list('attribution')
+
+#### List of self reference pronouns from LIWC
+self_refer = ref_lexicons.list('self_reference')
 
 
 def extract_bias_features(text):
     features = OrderedDict()
-    text_nohyph = text.replace("-", " ")  # preserve hyphenated words as seperate tokens
+    text_nohyph = text.replace("-", " ")  # preserve hyphenated words as separate tokens
     txt_lwr = str(text_nohyph).lower()
     words = ''.join(ch for ch in txt_lwr if ch not in '!"#$%&()*+,-./:;<=>?@[\]^_`{|}~').split()
     unigrams = sorted(list(set(words)))
@@ -342,43 +321,11 @@ def extract_bias_features(text):
     # word count
     features['word_cnt'] = len(words)
 
-    # unique word count
+    # unique words
     features['unique_word_cnt'] = len(unigrams)
 
-    # presupposition verb count
-    count = count_feature_list_freq(presup, words, bigrams, trigrams)
-    features['presup_cnt'] = count
-    features['presup_rto'] = round(float(count) / float(len(words)), 4)
-
-    # coherence marker count
-    count = count_phrase_freq(coherence, txt_lwr)
-    features['cm_cnt'] = count
-    features['cm_rto'] = round(float(count) / float(len(words)), 4)
-
-    # assertive verb count
-    count = count_feature_list_freq(assertives, words, bigrams, trigrams)
-    features['assertive_cnt'] = count
-    features['assertive_rto'] = round(float(count) / float(len(words)), 4)
-
-    # degree modifier count
-    count = count_feature_list_freq(modifiers, words, bigrams, trigrams)
-    features['dm_cnt'] = count
-    features['dm_rto'] = round(float(count) / float(len(words)), 4)
-
-    # hedge word count
-    count = count_feature_list_freq(hedges, words, bigrams, trigrams)
-    features['hedge_cnt'] = count
-    features['hedge_rto'] = round(float(count) / float(len(words)), 4)
-
-    # partisan words and phrases count
-    count = count_feature_list_freq(partisan, words, bigrams, trigrams)
-    features['partisan_cnt'] = count
-    features['partisan_rto'] = round(float(count) / float(len(words)), 4)
-
-    # subjective value laden word count
-    count = count_feature_list_freq(value_laden, words, bigrams, trigrams)
-    features['opinion_cnt'] = count
-    features['opinion_rto'] = round(float(count) / float(len(words)), 4)
+    # Flesch-Kincaid Grade Level (reading difficulty) using textstat
+    features['fk_gl'] = flesch_kincaid_grade(text)
 
     # compound sentiment score using VADER sentiment analysis package
     compound_sentiment = vader_sentiment_analysis.polarity_scores(text)['compound']
@@ -390,49 +337,51 @@ def extract_bias_features(text):
     sentence_obj = Sentence(sentence)
     features['modality'] = round(modality(sentence_obj), 4)
 
-    # Flesch-Kincaid Grade Level (reading difficulty) using textstat
-    features['fk_gl'] = flesch_kincaid_grade(text)
+    # quoted material
+    quote_dict = check_quotes(text)
+    features["has_quotes"] = quote_dict["has_quotes"]
+    features["quote_length"] = quote_dict["mean_quote_length"]
+    features["nonquote_length"] = quote_dict["mean_nonquote_length"]
 
-    # figurative count
-    count = count_phrase_freq(figurative, txt_lwr)
+    # presupposition markers
+    count = count_feature_freq(presup, words, txt_lwr)
+    features['presup_cnt'] = count
+    features['presup_rto'] = round(float(count) / float(len(words)), 4)
+
+    # doubt markers
+    count = count_feature_freq(doubt, words, txt_lwr)
+    features['doubt_cnt'] = count
+    features['doubt_rto'] = round(float(count) / float(len(words)), 4)
+
+    # partisan words and phrases
+    count = count_feature_freq(partisan, words, txt_lwr)
+    features['partisan_cnt'] = count
+    features['partisan_rto'] = round(float(count) / float(len(words)), 4)
+
+    # subjective value laden word count
+    count = count_feature_freq(value_laden, words, txt_lwr)
+    features['opinion_cnt'] = count
+    features['opinion_rto'] = round(float(count) / float(len(words)), 4)
+
+    # figurative language markers
+    count = count_feature_freq(figurative, words, txt_lwr)
     features['figurative_cnt'] = count
     features['figurative_rto'] = round(float(count) / float(len(words)), 4)
 
-    # liwc 3rd person pronoun count (combines S/he and They)
-    count = count_liwc_list_freq(liwc_3pp, words)
-    features['liwc_3pp_cnt'] = count
-    features['liwc_3pp_rto'] = round(float(count) / float(len(words)), 4)
+    # attribution markers
+    count = count_feature_freq(attribution, words, txt_lwr)
+    features['attribution_cnt'] = count
+    features['attribution_rto'] = round(float(count) / float(len(words)), 4)
 
-    # liwc achievement word count
-    count = count_liwc_list_freq(liwc_achiev, words)
-    features['liwc_achiev_cnt'] = count
-    features['liwc_achiev_rto'] = round(float(count) / float(len(words)), 4)
+    # Self reference pronouns
+    count = count_feature_freq(self_refer, words, txt_lwr)
+    features['self_refer_cnt'] = count
+    features['self_refer_rto'] = round(float(count) / float(len(words)), 4)
 
-    # liwc causation word count
-    count = count_liwc_list_freq(liwc_causn, words)
-    features['liwc_causn_cnt'] = count
-    features['liwc_causn_rto'] = round(float(count) / float(len(words)), 4)
+    # Contextual Aspect Summary and Topical-Entity Recognition (CASTER)
+    caster_dict = get_caster(text)
+    features['caster_dict'] = caster_dict
 
-    # liwc self reference promouns count
-    count = count_liwc_list_freq(liwc_self, words)
-    features['liwc_self_cnt'] = count
-    features['liwc_self_rto'] = round(float(count) / float(len(words)), 4)
-
-    # liwc tentative word count
-    count = count_liwc_list_freq(liwc_tent, words)
-    features['liwc_tent_cnt'] = count
-    features['liwc_tent_rto'] = round(float(count) / float(len(words)), 4)
-
-    # liwc work word count
-    count = count_liwc_list_freq(liwc_work, words)
-    features['liwc_work_cnt'] = count
-    features['liwc_work_rto'] = round(float(count) / float(len(words)), 4)
-
-    # handle quoted material in text
-    quote_dict = check_quotes(text)
-    features["has_quotes"] = quote_dict["has_quotes"]
-    features["mean_quote_length"] = quote_dict["mean_quote_length"]
-    features["mean_nonquote_length"] = quote_dict["mean_nonquote_length"]
     return features
 
 
@@ -594,6 +543,7 @@ def enumerate_sentences(fpath='input_text'):
             print('-- Statement is too short: {}'.format(statement))
 
 
+
 if __name__ == '__main__':
     # Demo article file
     # print(compute_avg_statement_bias_mp(get_text_from_article_file("news_articles/brexit_01.txt"), 4))
@@ -609,5 +559,7 @@ if __name__ == '__main__':
 
     demo_output_types = True
     if demo_output_types:
-        sentence_list = get_text_from_article_file('input_text').split('\n')
+        sentence_list = get_text_from_article_file('input_text').split('\n')[:2]
         print_feature_data(sentence_list, output_type='tsv')
+        #cstr_summary_terms = get_caster(" ".join(sentence_list))
+        #print(cstr_summary_terms)
