@@ -59,7 +59,6 @@ def split_into_sentences(text):
     digits = "([0-9])"
 
     text = " " + text + "  "
-    text = text.replace("\n", " ")
     text = re.sub(prefixes, "\\1<prd>", text)
     text = re.sub(websites, "<prd>\\1", text)
     if "Ph.D" in text:
@@ -84,6 +83,7 @@ def split_into_sentences(text):
         text = text.replace("!\"", "\"!")
     if "?" in text:
         text = text.replace("?\"", "\"?")
+    text = text.replace("\n", " <stop>")
     text = text.replace(".", ".<stop>")
     text = text.replace("?", "?<stop>")
     text = text.replace("!", "!<stop>")
@@ -91,6 +91,7 @@ def split_into_sentences(text):
     sentences = text.split("<stop>")
     sentences = sentences[:-1]
     sentences = [s.strip() for s in sentences]
+    sentences = [s for s in sentences if len(s) >= 2]
     return sentences
 
 
@@ -330,7 +331,8 @@ liwc_work = ref_lexicons.list('ref_liwc_work')
 
 def extract_bias_features(text):
     features = OrderedDict()
-    text_nohyph = text.replace("-", " ")  # preserve hyphenated words as seperate tokens
+	acsiitext = text.decode('ascii', 'ignore') # ignore conversion errors between utf-8 and ascii
+    text_nohyph = acsiitext.replace("-", " ")  # preserve hyphenated words as separate tokens
     txt_lwr = str(text_nohyph).lower()
     words = ''.join(ch for ch in txt_lwr if ch not in '!"#$%&()*+,-./:;<=>?@[\]^_`{|}~').split()
     unigrams = sorted(list(set(words)))
