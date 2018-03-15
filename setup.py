@@ -24,7 +24,7 @@ class PostInstallCommand(install):
 print(find_packages('bsdetector'))
 setup(name=package,
       version=version,
-      packages=['bsdetector', 'lexicons', 'additional_resources'],
+      packages=['bsdetector', 'additional_resources'],
       install_requires=['decorator', 'requests', 'textstat', 'vaderSentiment',
                         'pattern', 'nltk', 'pytest'],
       package_dir={'bsdetector': 'bsdetector'},
