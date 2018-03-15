@@ -336,7 +336,7 @@ attribution = ref_lexicons.list('attribution')
 self_refer = ref_lexicons.list('self_reference')
 
 
-def extract_bias_features(text, do_get_caster=True):
+def extract_bias_features(text, do_get_caster=False):
     features = OrderedDict()
     acsiitext = text.decode('ascii', 'ignore')  # ignore conversion errors between utf-8 and ascii
     text_nohyph = acsiitext.replace("-", " ")  # preserve hyphenated words as separate tokens
