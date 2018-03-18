@@ -6,6 +6,13 @@ Created on June 04, 2015
 @author: C.J. Hutto
 """
 from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from builtins import zip
+from builtins import str
+from builtins import range
+from past.utils import old_div
+from builtins import object
 import json
 import multiprocessing
 import os
@@ -15,7 +22,7 @@ from collections import OrderedDict
 from decorator import contextmanager
 from pattern.text.en import Sentence, parse, modality
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer as Vader_Sentiment
-from caster import caster
+from bsdetector.caster import caster
 
 
 class Lexicons(object):
@@ -97,7 +104,7 @@ def split_into_sentences(text):
 
 
 def find_ngrams(input_list, n):
-    return zip(*[input_list[i:] for i in range(n)])
+    return list(zip(*[input_list[i:] for i in range(n)]))
 
 
 def syllable_count(text):
@@ -150,7 +157,7 @@ def sentence_count(text):
 def avg_sentence_length(text):
     lc = lexicon_count(text)
     sc = sentence_count(text)
-    a_s_l = float(lc / sc)
+    a_s_l = float(old_div(lc, sc))
     return round(a_s_l, 1)
 
 
@@ -158,7 +165,7 @@ def avg_syllables_per_word(text):
     syllable = syllable_count(text)
     words = lexicon_count(text)
     try:
-        a_s_p_w = float(syllable) / float(words)
+        a_s_p_w = old_div(float(syllable), float(words))
         return round(a_s_p_w, 1)
     except ZeroDivisionError:
         # print "Error(ASyPW): Number of words are zero, cannot divide"
@@ -207,14 +214,14 @@ def check_quotes(text):
             nonquote = nonquote.replace(qte, "")
             nonquote = nonquote.replace('"', '')
             re.sub(r'[\s]+', ' ', nonquote)
-        quote_info["mean_quote_length"] = round(float(total_qte_length) / float(len(quotes)), 4)
+        quote_info["mean_quote_length"] = round(old_div(float(total_qte_length), float(len(quotes))), 4)
         nonquotes = split_into_sentences(nonquote)
         if len(nonquotes) > 0:
             quote_info["nonquoted_list"] = nonquotes
             total_nqte_length = 0
             for nqte in nonquotes:
                 total_nqte_length += avg_sentence_length(nqte)
-            quote_info["mean_nonquote_length"] = round(float(total_nqte_length) / float(len(nonquotes)), 4)
+            quote_info["mean_nonquote_length"] = round(old_div(float(total_nqte_length), float(len(nonquotes))), 4)
         else:
             quote_info["nonquoted_list"] = None
             quote_info["mean_nonquote_length"] = 0
@@ -338,7 +345,7 @@ self_refer = ref_lexicons.list('self_reference')
 
 def extract_bias_features(text, do_get_caster=False):
     features = OrderedDict()
-    acsiitext = text.decode('ascii', 'ignore')  # ignore conversion errors between utf-8 and ascii
+    acsiitext = text
     text_nohyph = acsiitext.replace("-", " ")  # preserve hyphenated words as separate tokens
     txt_lwr = str(text_nohyph).lower()
     words = ''.join(ch for ch in txt_lwr if ch not in '!"#$%&()*+,-./:;<=>?@[\]^_`{|}~').split()
@@ -383,37 +390,37 @@ def extract_bias_features(text, do_get_caster=False):
     # presupposition markers
     count = count_feature_freq(presup, words, txt_lwr)
     features['presup_cnt'] = count
-    features['presup_rto'] = round(float(count) / float(len(words)), 4)
+    features['presup_rto'] = round(old_div(float(count), float(len(words))), 4)
 
     # doubt markers
     count = count_feature_freq(doubt, words, txt_lwr)
     features['doubt_cnt'] = count
-    features['doubt_rto'] = round(float(count) / float(len(words)), 4)
+    features['doubt_rto'] = round(old_div(float(count), float(len(words))), 4)
 
     # partisan words and phrases
     count = count_feature_freq(partisan, words, txt_lwr)
     features['partisan_cnt'] = count
-    features['partisan_rto'] = round(float(count) / float(len(words)), 4)
+    features['partisan_rto'] = round(old_div(float(count), float(len(words))), 4)
 
     # subjective value laden word count
     count = count_feature_freq(value_laden, words, txt_lwr)
     features['value_cnt'] = count
-    features['value_rto'] = round(float(count) / float(len(words)), 4)
+    features['value_rto'] = round(old_div(float(count), float(len(words))), 4)
 
     # figurative language markers
     count = count_feature_freq(figurative, words, txt_lwr)
     features['figurative_cnt'] = count
-    features['figurative_rto'] = round(float(count) / float(len(words)), 4)
+    features['figurative_rto'] = round(old_div(float(count), float(len(words))), 4)
 
     # attribution markers
     count = count_feature_freq(attribution, words, txt_lwr)
     features['attribution_cnt'] = count
-    features['attribution_rto'] = round(float(count) / float(len(words)), 4)
+    features['attribution_rto'] = round(old_div(float(count), float(len(words))), 4)
 
     # self reference pronouns
     count = count_feature_freq(self_refer, words, txt_lwr)
     features['self_refer_cnt'] = count
-    features['self_refer_rto'] = round(float(count) / float(len(words)), 4)
+    features['self_refer_rto'] = round(old_div(float(count), float(len(words))), 4)
 
     # Contextual Aspect Summary and Topical-Entity Recognition (CASTER)
     if do_get_caster:
@@ -463,7 +470,7 @@ def normalized_features(features):
     """Normalize the features by dividing by the coefficient."""
     beta = modelbeta
     fvec = featurevector(features)
-    norm = lambda i: fvec[i] / modelbeta[i]
+    norm = lambda i: old_div(fvec[i], modelbeta[i])
     return [norm(i) for i in range(len(modelbeta))]
 
 
@@ -492,7 +499,7 @@ def poolcontext(*args, **kwargs):
 
 def roundmean(avg_bias, sentences, k=4):
     """Compute the average and round to k places"""
-    avg_bias = round(float(avg_bias) / float(len(sentences)), k)
+    avg_bias = round(old_div(float(avg_bias), float(len(sentences))), k)
     return avg_bias
 
 
@@ -565,11 +572,26 @@ def make_tsv_output(list_of_sentences):
         if len(sent) >= 1:
             feature_data = extract_bias_features(sent)
             if not keys_done:
-                tsv_output = 'sentence\t' + '\t'.join(feature_data.keys()) + '\n'
+                tsv_output = 'sentence\t' + '\t'.join(list(feature_data.keys())) + '\n'
                 keys_done = True
-            str_vals = [str(f) for f in feature_data.values()]
+            str_vals = [str(f) for f in list(feature_data.values())]
             tsv_output += sent + '\t' + '\t'.join(str_vals) + '\n'
     return tsv_output
+
+
+def make_dict_output(list_of_sentences):
+    data = []
+    for sent in list_of_sentences:
+        if len(sent) >= 1:
+            feature_data = extract_bias_features(sent)
+            feature_data['text'] = sent
+            data.insert(0, feature_data)
+    return data
+
+
+def make_json_output(list_of_sentences):
+    data = make_dict_output(list_of_sentences)
+    return json.dumps(data, indent=2)
 
 
 def make_html_output(list_of_sentences):
@@ -585,9 +607,9 @@ def make_html_output(list_of_sentences):
         if len(sent) > 3:
             feature_data = extract_bias_features(sent)
             if not keys_done:
-                html_output += '<tr><th>sentence' + hsep + hsep.join(feature_data.keys()) + '</th></tr>'
+                html_output += '<tr><th>sentence' + hsep + hsep.join(list(feature_data.keys())) + '</th></tr>'
                 keys_done = True
-            str_vals = [str(f) for f in feature_data.values()]
+            str_vals = [str(f) for f in list(feature_data.values())]
             html_output += '<tr><td>' + sent + sep + sep.join(str_vals) + '</td></tr>'
     html_output += '</table></body></html>'
     return html_output
@@ -600,6 +622,8 @@ def print_feature_data(list_of_sentences, output_type='tsv', fileout=sys.stdout)
         output = make_html_output(list_of_sentences)
     elif output_type == 'tsv':
         output = make_tsv_output(list_of_sentences)
+    elif output_type == 'json':
+        output = make_json_output(list_of_sentences)
     print(output, file=fileout)
 
 
@@ -631,6 +655,6 @@ if __name__ == '__main__':
     demo_output_types = True
     if demo_output_types:
         sentence_list = get_text_from_article_file('input_text').split('\n')#[:2]
-        print_feature_data(sentence_list, output_type='tsv')
+        print_feature_data(sentence_list, output_type='json')
         #cstr_summary_terms = get_caster(" ".join(sentence_list))
         #print(cstr_summary_terms)

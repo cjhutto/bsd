@@ -6,6 +6,10 @@ Created on January 08, 2018
 @author: C.J. Hutto
 """
 from __future__ import print_function
+from builtins import input
+from builtins import str
+from builtins import range
+import os
 import re
 import operator
 import nltk
@@ -82,7 +86,8 @@ def replace_flooded_chars(text):
     return re.sub(r'(.+?)\1\1+', r'\1\1', text)
 
 
-STOPWORDS = get_list_from_file('stopWordsSMART.txt')
+PROJECT_ROOT = os.path.dirname(os.path.realpath(__file__))
+STOPWORDS = get_list_from_file(os.path.join(PROJECT_ROOT, 'stopWordsSMART.txt'))
 
 
 def remove_stopwords(text, word_char_limit=3, stopwords_list=STOPWORDS):
@@ -377,17 +382,17 @@ def castr_demo(text):
         print("\t", freq_words_in_defs)
         print("\t", similar_synSets_to_wordSynSet)'''
     squeezed_text = squeeze_whitespace(text)
-    raw_input("Press Enter to continue...")
+    input("Press Enter to continue...")
 
     print("\n-- Squeezed text (i.e., tabs, newlines, unnecessary white space removed):", encode_ignore(squeezed_text))
     nltk_entities_lst = nltk_extract_entities(squeezed_text)
-    raw_input("Press Enter to continue...")
+    input("Press Enter to continue...")
 
     print("\n-- Named Entity Recognition (NER): names, places, orgs, events:\n",
           nltk_entities_lst)
     kwp_ext = get_keywords_phrases(squeezed_text)
     combined_nerkwp_cnt_tuplst = combine_ners_kwp(nltk_entities_lst, kwp_ext, original_text=text)
-    raw_input("Press Enter to continue...")
+    input("Press Enter to continue...")
 
     print("\n-- Named Entities and other important keywords/phrases (based on POS & WSD), ordered by frequency):\n",
           combined_nerkwp_cnt_tuplst)
@@ -397,7 +402,7 @@ def castr_demo(text):
                                                             comparison_text=squeezed_text, sort_by="tfidf")
     query_terms_both_tuplst = extract_summary_terms(combined_nerkwp_cnt_tuplst,
                                                     comparison_text=squeezed_text, sort_by="both")
-    raw_input("Press Enter to continue...")
+    input("Press Enter to continue...")
 
     print("\n-- Preparing SUMMARY TERMS based on word-order sensitive n-gram combinations of \
     Named Entities & Important Keywords/Phrases...")
