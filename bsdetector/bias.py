@@ -585,7 +585,7 @@ def make_dict_output(list_of_sentences):
         if len(sent) >= 1:
             feature_data = extract_bias_features(sent)
             feature_data['text'] = sent
-            data.insert(0, feature_data)
+            data.append(feature_data)
     return data
 
 
@@ -636,25 +636,3 @@ def enumerate_sentences(fpath='input_text'):
             yield(biasq, statement)
         else:
             print('-- Statement is too short: {}'.format(statement))
-
-
-
-if __name__ == '__main__':
-    # Demo article file
-    # print(compute_avg_statement_bias_mp(get_text_from_article_file("news_articles/brexit_01.txt"), 4))
-    '''FPATH = 'input_text'
-    for bias, stmt in enumerate_sentences(FPATH):
-        msg = 'Bias: {}\t {}'.format(bias, stmt)
-        print(msg)
-
-    NEWSPATH = "news_articles/brexit_01.txt"
-    print('loading news article: {}'.format(NEWSPATH), file=sys.stderr)
-    STATEMENT = get_text_from_article_file(NEWSPATH)
-    print(compute_avg_statement_bias(STATEMENT))'''
-
-    demo_output_types = True
-    if demo_output_types:
-        sentence_list = get_text_from_article_file('input_text').split('\n')#[:2]
-        print_feature_data(sentence_list, output_type='json')
-        #cstr_summary_terms = get_caster(" ".join(sentence_list))
-        #print(cstr_summary_terms)

@@ -50,6 +50,11 @@ setup(
     description="Detects biased statements in online media documents",
     url='url',
     cmdclass={
-        'install': PostInstallCommand,
+        'install': PostInstallCommand
+    },
+    entry_points={
+        'console_scripts': [
+            'bsdetector = bsdetector.__main__:main'
+        ]
     }
 )
