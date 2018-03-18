@@ -42,7 +42,7 @@ setup(
     name=package,
     version=version,
     package_dir={'bsdetector': 'bsdetector'},
-    package_data={'bsdetector': ['*.json']},
+    package_data={'bsdetector': ['*.json', '*.txt']},
     packages=find_packages(),
     install_requires=requires,
     dependency_links=links,
