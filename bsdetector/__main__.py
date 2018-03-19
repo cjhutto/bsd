@@ -3,7 +3,7 @@ from bsdetector.bias import get_text_from_article_file, print_feature_data
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ikjMatrix multiplication")
+    parser = argparse.ArgumentParser(description="Biased Statement Detector quantifies and explains the nature of bias in English prose text.")
     parser.add_argument("-i", dest="filename", required=True,
                         help="Input file", metavar="FILE")
     parser.add_argument("-o", dest="output", required=False,
