@@ -8,6 +8,7 @@ Created on June 04, 2015
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+from __future__ import unicode_literals
 from builtins import zip
 from builtins import str
 from builtins import range
@@ -345,8 +346,10 @@ self_refer = ref_lexicons.list('self_reference')
 
 def extract_bias_features(text, do_get_caster=False):
     features = OrderedDict()
-    acsiitext = text
-    text_nohyph = acsiitext.replace("-", " ")  # preserve hyphenated words as separate tokens
+    if sys.version_info < (3, 0):
+        # ignore conversion errors between utf-8 and ascii
+        text = text.decode('ascii', 'ignore')
+    text_nohyph = text.replace("-", " ")  # preserve hyphenated words as separate tokens
     txt_lwr = str(text_nohyph).lower()
     words = ''.join(ch for ch in txt_lwr if ch not in '!"#$%&()*+,-./:;<=>?@[\]^_`{|}~').split()
     unigrams = sorted(list(set(words)))
