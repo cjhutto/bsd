@@ -430,7 +430,7 @@ def extract_bias_features(text, do_get_caster=False):
 
     return features
 
-
+# order-preserved list of multiple linear regression model coefficients
 modelbeta = [0.844952,
              -0.015031,
              0.055452,
@@ -445,6 +445,7 @@ modelbeta = [0.844952,
              -0.041790,
              0.129693]
 
+# order-preserved list of multiple linear regression model features
 modelkeys = ['word_cnt',
              'vader_senti_abs',
              'neg_persp',
@@ -458,7 +459,35 @@ modelkeys = ['word_cnt',
              'attribution_cnt',
              'self_refer_cnt']
 
+# unordered associative array (reference dictionary) containing the 
+#   multiple linear regression model features and coefficients
+mlrmdict = {# 'intercept'    : 0.844952,
+			'word_cnt'       : -0.01503,
+			'vader_senti_abs': 0.055452,
+			'neg_persp'      : 0.064741,
+			'certainty'      : -0.01845,
+			'quote_length'   : -0.00851,
+			'presup_cnt'     : 0.048985,
+			'doubt_cnt'      : 0.047783,
+			'partisan_cnt'   : 0.028755,
+			'value_cnt'      : 0.117819,
+			'figurative_cnt' : 0.269963,
+			'attribution_cnt': -0.04179,
+			'self_refer_cnt' : 0.129693}
 
+
+def measure_feature_impact(sentence):
+	""" Calculate the (normalized) impact of each feature for a given sentence using  
+	    the top half of the logistic function sigmoid. 
+		Returns a Python dictionary of the impact score for each feature."""
+    impact_dict = {}
+    e = 2.7182818284590452353602874713527  # e constant (Euler's number)
+    ebf = extract_bias_features(sentence)
+    for k in mlrmdict.keys():
+        impact_dict[k] = (2 * (1 / (1 + e**(-abs(ebf[k])))) - 1) * abs(mlrmdict[k]) * 100
+    return impact_dict
+
+			
 def featurevector(features):
     """Extract the features into a vector in the right order, prepends a 1 for constant term."""
     l = [1]
