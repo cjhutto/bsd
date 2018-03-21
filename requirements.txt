@@ -1,7 +1,13 @@
 pytest
 vaderSentiment
-pattern
+-e git+https://github.com/pattern3/pattern.git#egg=pattern
 nltk
-decorators
 requests
 textstat
+future==0.16.0
+decorator==4.2.1
+decorators==0.1.1
+sklearn==0.0
+scikit-learn==0.19.1
+numpy==1.14.2
+scipy==1.0.0
